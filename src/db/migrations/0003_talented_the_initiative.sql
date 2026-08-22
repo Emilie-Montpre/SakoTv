@@ -1,0 +1,1 @@
+ALTER TABLE `import_failures` ADD `payload` text;
