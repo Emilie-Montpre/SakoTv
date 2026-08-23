@@ -1,7 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -41,6 +42,7 @@ function TitleGrid({ items, theme }: { items: LibraryListItem[]; theme: ReturnTy
 export default function HomeScreen() {
   const theme = useTheme();
   const queryClient = useQueryClient();
+  const [randomResult, setRandomResult] = useState<LibraryListItem | 'empty' | null>(null);
 
   const { data } = useQuery({ queryKey: ['library-items'], queryFn: listLibraryItems });
   const { data: lastWatchedAtByTitle } = useQuery({
@@ -59,6 +61,18 @@ export default function HomeScreen() {
   const active = watching.filter((item) => !isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId)));
   const paused = watching.filter((item) => isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId)));
 
+  const pickRandom = () => {
+    const pool = (data ?? []).filter((item) => {
+      if (item.status === 'to_watch') return true;
+      return item.status === 'watching' && isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId));
+    });
+    if (pool.length === 0) {
+      setRandomResult('empty');
+      return;
+    }
+    setRandomResult(pool[Math.floor(Math.random() * pool.length)]);
+  };
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -66,6 +80,42 @@ export default function HomeScreen() {
           <ThemedText type="subtitle" style={styles.title}>
             Accueil
           </ThemedText>
+
+          <View style={styles.section}>
+            <Pressable style={[styles.randomButton, { backgroundColor: theme.backgroundElement }]} onPress={pickRandom}>
+              <Ionicons name="shuffle-outline" size={16} color={theme.text} />
+              <ThemedText type="small">Je ne sais pas quoi regarder</ThemedText>
+            </Pressable>
+
+            {randomResult === 'empty' && (
+              <View style={[styles.randomResult, { backgroundColor: theme.backgroundElement }]}>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.randomResultName}>
+                  Breaking news : local user discovers revolutionary time management technique (it's called "having nothing to watch"). {`\n`}{`\n`}Recherche se demande pourquoi ses recommandations existent. Moment dépressif en cours...
+                </ThemedText>
+              </View>
+            )}
+
+            {randomResult && randomResult !== 'empty' && (
+              <View style={[styles.randomResult, { backgroundColor: theme.backgroundElement }]}>
+                <Pressable
+                  style={styles.randomResultMain}
+                  onPress={() => router.push(`/title/${randomResult.mediaType}-${randomResult.tmdbId}`)}>
+                  {tmdbImageUrl(randomResult.posterPath, 'w185') ? (
+                    <Image
+                      source={{ uri: tmdbImageUrl(randomResult.posterPath, 'w185')! }}
+                      style={styles.randomResultPoster}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={[styles.randomResultPoster, { backgroundColor: theme.backgroundSelected }]} />
+                  )}
+                  <ThemedText numberOfLines={2} style={styles.randomResultName}>
+                    {randomResult.name}
+                  </ThemedText>
+                </Pressable>
+              </View>
+            )}
+          </View>
 
           <View style={styles.section}>
             <ThemedText type="smallBold">En cours</ThemedText>
@@ -103,4 +153,25 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   gridItem: { width: '31%', gap: Spacing.half },
   gridPoster: { width: '100%', aspectRatio: 2 / 3, borderRadius: Spacing.one },
+  randomButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.five,
+  },
+  randomResult: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+    padding: Spacing.two,
+    borderRadius: Spacing.two,
+  },
+  randomResultMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  randomResultPoster: { width: 50, height: 75, borderRadius: Spacing.one },
+  randomResultName: { flex: 1 },
+  smallButton: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.one },
 });
