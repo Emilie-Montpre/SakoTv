@@ -138,6 +138,10 @@ La section "Recommandations" existe déjà sur l'écran Recherche (déplacée de
 
 L'écran Bibliothèque est fonctionnel mais pas beau visuellement ("pratique, mais pas très beau"). **Demandé le 2026-08-22 — pas encore spécifié, à détailler plus tard** (l'utilisateur a prévenu qu'il donnerait aussi des retours sur la Fiche détail séparément).
 
+## Backlog — Redesign des popups
+
+Les popups de confirmation actuelles utilisent `Alert.alert` (natif Android/iOS, pas stylable, rendu générique) un peu partout : réinitialisation des données, confirmation d'import, marquer une saison vue, choix de bande-annonce, etc. — jugées "dégueulasses" par l'utilisateur. **Demandé le 2026-08-23 — pas encore spécifié**, à détailler plus tard (remplacer par un composant modal maison qui reprend le thème de l'app, plutôt que la boîte de dialogue système).
+
 ## Backlog — Animation de félicitations quand un titre passe "Terminé"
 
 Quand une série/film/animé atteint le statut "Terminé", petite animation (confettis ou autre) pour féliciter l'utilisateur d'avoir fini quelque chose. **Demandé le 2026-08-22 — encore à déterminer, pas de détails précisés.**
