@@ -40,10 +40,12 @@ export async function loadTitleLocalState(titleId: number): Promise<TitleLocalSt
 
   const libraryItem = await db.query.libraryItems.findFirst({ where: eq(libraryItems.titleId, titleId) });
 
-  const seasonRows = await db.query.seasons.findMany({
-    where: eq(seasons.titleId, titleId),
-    orderBy: asc(seasons.seasonNumber),
-  });
+  const seasonRows = (
+    await db.query.seasons.findMany({
+      where: eq(seasons.titleId, titleId),
+      orderBy: asc(seasons.seasonNumber),
+    })
+  ).sort((a, b) => (a.seasonNumber === 0 ? 1 : b.seasonNumber === 0 ? -1 : 0));
 
   const watchedRows = await db.query.watchedEpisodes.findMany({ where: eq(watchedEpisodes.titleId, titleId) });
   const watchedByEpisodeId = new Map(watchedRows.map((w) => [w.episodeId, w]));

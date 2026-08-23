@@ -18,7 +18,7 @@ function TitleGrid({ items, theme }: { items: LibraryListItem[]; theme: ReturnTy
   return (
     <View style={styles.grid}>
       {items.map((item) => {
-        const poster = tmdbImageUrl(item.posterPath, 'w342');
+        const poster = tmdbImageUrl(item.posterPath, 'w185');
         return (
           <Pressable
             key={item.titleId}
@@ -29,7 +29,7 @@ function TitleGrid({ items, theme }: { items: LibraryListItem[]; theme: ReturnTy
             ) : (
               <View style={[styles.gridPoster, { backgroundColor: theme.backgroundSelected }]} />
             )}
-            <ThemedText numberOfLines={2} style={styles.gridLabel}>
+            <ThemedText type="small" numberOfLines={2}>
               {item.name}
             </ThemedText>
           </Pressable>
@@ -103,8 +103,7 @@ const styles = StyleSheet.create({
   scroll: { gap: Spacing.four, paddingBottom: Spacing.six },
   title: { marginTop: Spacing.two },
   section: { gap: Spacing.two },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
-  gridItem: { width: '47%', gap: Spacing.one },
-  gridPoster: { width: '100%', aspectRatio: 2 / 3, borderRadius: Spacing.two },
-  gridLabel: { fontSize: 16 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  gridItem: { width: '31%', gap: Spacing.half },
+  gridPoster: { width: '100%', aspectRatio: 2 / 3, borderRadius: Spacing.one },
 });
