@@ -3,11 +3,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getMovieDetails, getTvDetails, tmdbImageUrl } from '@/api/tmdb';
-import type { TmdbMovieDetails, TmdbTvDetails } from '@/api/tmdb-types';
+import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { displayStatusLabel, statusColors, statusLabels } from '@/constants/content';
@@ -64,6 +64,15 @@ function formatRuntime(minutes: number) {
 function formatAirDate(date: string) {
   const [year, month, day] = date.split('-').map(Number);
   return new Date(year, month - 1, day).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/** Bandes-annonces/teasers YouTube, triés officielle > bande-annonce > teaser — un titre peut en avoir plusieurs (une par saison, par exemple). */
+function findTrailers(videos: TmdbVideo[] | undefined): TmdbVideo[] {
+  const youtubeVideos = (videos ?? []).filter(
+    (v) => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'),
+  );
+  const rank = (v: TmdbVideo) => (v.type === 'Trailer' && v.official ? 0 : v.type === 'Trailer' ? 1 : 2);
+  return [...youtubeVideos].sort((a, b) => rank(a) - rank(b));
 }
 
 function isGenericSeasonName(name: string, seasonNumber: number) {
@@ -158,6 +167,7 @@ export default function TitleDetailScreen() {
   const poster = tmdbImageUrl(details.poster_path, 'w342');
   const cast = details.credits?.cast?.slice(0, 12) ?? [];
   const tvStatus = 'first_air_date' in details ? details.status : undefined;
+  const trailers = findTrailers(details.videos?.results);
   const local = localStateQuery.data;
 
   return (
@@ -188,6 +198,27 @@ export default function TitleDetailScreen() {
             </ThemedText>
           </View>
         </View>
+
+        {trailers.length > 0 && (
+          <Pressable
+            style={[styles.trailerButton, { backgroundColor: theme.backgroundElement }]}
+            onPress={() => {
+              if (trailers.length === 1) {
+                Linking.openURL(`https://www.youtube.com/watch?v=${trailers[0].key}`);
+                return;
+              }
+              Alert.alert('Bandes-annonces disponibles', undefined, [
+                ...trailers.map((v) => ({
+                  text: v.name,
+                  onPress: () => Linking.openURL(`https://www.youtube.com/watch?v=${v.key}`),
+                })),
+                { text: 'Annuler', style: 'cancel' as const },
+              ]);
+            }}>
+            <Ionicons name="play-circle" size={20} color={theme.text} />
+            <ThemedText type="small">{trailers.length > 1 ? 'Bandes-annonces' : 'Bande-annonce'}</ThemedText>
+          </Pressable>
+        )}
 
         {resolveFailureId && (
           <View style={styles.resolveBlock}>
@@ -415,6 +446,16 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three, marginTop: -Spacing.five },
   poster: { width: 100, height: 150, borderRadius: Spacing.two },
   headerText: { flex: 1, justifyContent: 'flex-end', gap: Spacing.half },
+  trailerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    alignSelf: 'flex-start',
+    marginHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.five,
+  },
   overview: { paddingHorizontal: Spacing.three, gap: Spacing.one },
   section: { gap: Spacing.two, paddingHorizontal: Spacing.three },
   castRow: { gap: Spacing.three, paddingVertical: Spacing.one },

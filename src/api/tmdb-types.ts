@@ -37,6 +37,19 @@ export interface TmdbCredits {
   cast: TmdbCastMember[];
 }
 
+export interface TmdbVideo {
+  id: string;
+  key: string;
+  name: string;
+  site: string;
+  type: string;
+  official: boolean;
+}
+
+export interface TmdbVideos {
+  results: TmdbVideo[];
+}
+
 export interface TmdbSeasonSummary {
   id: number;
   season_number: number;
@@ -65,6 +78,7 @@ export interface TmdbMovieDetails {
   genres: TmdbGenre[];
   status: string;
   credits?: TmdbCredits;
+  videos?: TmdbVideos;
 }
 
 export interface TmdbTvDetails {
@@ -81,6 +95,7 @@ export interface TmdbTvDetails {
   seasons: TmdbSeasonSummary[];
   next_episode_to_air: TmdbNextEpisodeToAir | null;
   credits?: TmdbCredits;
+  videos?: TmdbVideos;
 }
 
 export interface TmdbEpisode {

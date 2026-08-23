@@ -46,11 +46,11 @@ export function searchMovie(query: string) {
 }
 
 export function getMovieDetails(tmdbId: number) {
-  return tmdbFetch<TmdbMovieDetails>(`/movie/${tmdbId}`, { append_to_response: 'credits' });
+  return tmdbFetch<TmdbMovieDetails>(`/movie/${tmdbId}`, { append_to_response: 'credits,videos' });
 }
 
 export function getTvDetails(tmdbId: number) {
-  return tmdbFetch<TmdbTvDetails>(`/tv/${tmdbId}`, { append_to_response: 'credits' });
+  return tmdbFetch<TmdbTvDetails>(`/tv/${tmdbId}`, { append_to_response: 'credits,videos' });
 }
 
 export function getSeasonDetails(tvId: number, seasonNumber: number) {
