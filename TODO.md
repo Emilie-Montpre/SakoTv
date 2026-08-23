@@ -3,7 +3,7 @@
 Suggestions proposées le 2026-08-23, toutes acceptées. **Demandé le 2026-08-23.**
 
 - [ ] **Export/sauvegarde des données locales** — bouton "Exporter mes données" (JSON) dans Stats, à côté de "Réinitialiser". Toutes les données étant locales (SQLite), il n'y a aujourd'hui aucun moyen de les sauvegarder en cas de perte/changement de téléphone — ironique vu que Sako TV existe justement parce que TV Time a fermé et emporté les données avec lui.
-- [ ] **Recherche dans la Bibliothèque** — barre de recherche par nom de titre directement dans l'écran Bibliothèque, en plus des filtres type/statut existants. Utile une fois la bibliothèque bien remplie après import.
+- [x] **Recherche dans la Bibliothèque** — barre de recherche par nom de titre directement dans l'écran Bibliothèque, en plus des filtres type/statut existants. **Fait le 2026-08-23** dans [library.tsx](src/app/(tabs)/library.tsx) : filtre en temps réel, combiné aux filtres existants, bouton pour effacer.
 - [ ] **Notifications locales pour les sorties** — notifier quand un prochain épisode ou un film à venir sort, pour tout titre déjà dans la bibliothèque (prochain épisode d'une série en cours, ou date de sortie d'un film suivi). Dépend de "À venir" (même source de données TMDB : `first_air_date`/`release_date`). Jugé "absolument" à garder par l'utilisateur.
 - [ ] **Randomizer "Qu'est-ce que je regarde ensuite ?"** — tire un titre au hasard dans la liste "à regarder", pour les soirs sans idée.
 - [ ] **Bilan annuel façon "Wrapped"** — confirmé le 2026-08-23. Reprend les données déjà calculées pour "Bilan par année" (Stats), mais dans une présentation plus visuelle façon carte-résumé ("cette année : 47 films, 312 épisodes, ton genre préféré était X") plutôt qu'une liste chiffrée brute.
