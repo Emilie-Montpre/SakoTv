@@ -1,4 +1,14 @@
-## Backlog — Propositions Claude, validées par l'utilisateur
+## Backlog — Exposer le "revisionnage" dans l'UI
+
+La donnée existe déjà en base (`library_items.rewatchCount` pour les films, `watched_episodes.rewatchCount` pour les épisodes) et `markMovieWatched`/`markEpisodeWatched` l'incrémentent déjà correctement quand un titre déjà vu est re-marqué vu — mais rien dans l'UI actuelle ne permet de déclencher ça : taper sur un film/épisode déjà vu le **désCoche** (toggle), il n'y a aucun chemin vers "je l'ai revu". **Demandé le 2026-08-23**, trois niveaux identifiés par l'utilisateur :
+
+**Confirmé le 2026-08-23 : rien à faire côté import, déjà géré.** L'extraction depuis le zip existe déjà pour les trois sources et alimente correctement `rewatchCount` : films via `rewatch_count` sur `tracking-prod-records` ([extract.ts:131](src/import/extract.ts:131)), épisodes via `rewatch_count` sur `tracking-prod-records-v2` ([extract.ts:104](src/import/extract.ts:104)), et épisodes via le fichier dédié `rewatched_episode` (colonne `cpt`, [extract.ts:157-166](src/import/extract.ts:157)) — `mergeEpisodeWatch` garde le max entre les sources. Le manque est uniquement côté UI (ci-dessous), pas côté import.
+
+- [ ] **Épisode** — appui long sur un épisode déjà vu → popup "Marquer comme revu ?" → incrémente `watched_episodes.rewatchCount` (au lieu du tap court qui désCoche). Même langage d'interaction que l'appui long existant sur les chips de saison.
+- [ ] **Film** — même principe sur le bouton "✓ Vu" de la Fiche : tap court garde le comportement actuel (désCoche), appui long → "Marquer comme revu ?" → incrémente `library_items.rewatchCount`.
+- [ ] **Saison entière** — pas de nouvelle colonne nécessaire : `markSeasonWatched()` (créé pour "marquer toute la saison vue") fait déjà, épisode par épisode, la même logique d'incrémentation que `markEpisodeWatched`. Il suffit de changer le comportement de l'appui long sur un chip de saison **déjà entièrement vue** — actuellement bloqué (`if (seasonFullyWatched) return;` dans [title/[id].tsx](src/app/title/[id].tsx)) — pour proposer "Marquer la saison comme revue ?" à la place, ce qui incrémente le `rewatchCount` de chaque épisode de la saison d'un coup.
+- [ ] **Pas de 4ᵉ niveau "série entière"** prévu séparément — déductible des données par saison plutôt qu'un compteur à part, sauf si l'utilisateur change d'avis plus tard.
+- [ ] **Affichage à définir le moment venu** : comment montrer le compteur dans chacun des trois cas (ex. "✓ Vu ×2" pour un film, badge sur la coche verte pour un épisode, indicateur sur le chip de saison) — pas encore tranché.
 
 Suggestions proposées le 2026-08-23, toutes acceptées. **Demandé le 2026-08-23.**
 
