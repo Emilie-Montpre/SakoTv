@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { tmdbImageUrl } from '@/api/tmdb';
@@ -60,6 +60,7 @@ export default function LibraryScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('library');
   const [typeFilter, setTypeFilter] = useState<ContentTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data } = useQuery({ queryKey: ['library-items'], queryFn: listLibraryItems });
   const { data: lastWatchedAtByTitle } = useQuery({
@@ -83,8 +84,11 @@ export default function LibraryScreen() {
     }, [queryClient]),
   );
 
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+
   const items = (data ?? []).filter((item) => {
     if (!matchesContentTypeFilter(item, typeFilter)) return false;
+    if (normalizedSearch && !item.name.toLowerCase().includes(normalizedSearch)) return false;
     const paused = isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId));
     const upToDate = isUpToDate(item.status, item.mediaType, item.statusTmdb);
     if (statusFilter === 'all') return true;
@@ -136,6 +140,21 @@ export default function LibraryScreen() {
 
         {viewMode === 'library' && (
           <>
+            <View style={[styles.searchBar, { backgroundColor: theme.backgroundElement }]}>
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Rechercher un titre..."
+                placeholderTextColor={theme.textSecondary}
+                style={[styles.searchInput, { color: theme.text }]}
+              />
+              {searchQuery.length > 0 && (
+                <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                  <ThemedText themeColor="textSecondary">×</ThemedText>
+                </Pressable>
+              )}
+            </View>
+
             <FilterRow value={typeFilter} onChange={handleTypeFilterChange} options={typeFilters} theme={theme} />
             <FilterRow
               value={statusFilter}
@@ -146,7 +165,7 @@ export default function LibraryScreen() {
 
             {items.length === 0 && (
               <ThemedText themeColor="textSecondary" style={styles.empty}>
-                Rien ici pour l'instant. Cherche un contenu pour l'ajouter.
+                {normalizedSearch ? 'Aucun titre ne correspond à cette recherche.' : "Rien ici pour l'instant. Cherche un contenu pour l'ajouter."}
               </ThemedText>
             )}
 
@@ -258,6 +277,15 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.three, gap: Spacing.two },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.two },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.five,
+  },
+  searchInput: { flex: 1, padding: 0 },
   filterRow: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
   filterChip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one, borderRadius: Spacing.five },
   empty: { textAlign: 'center', marginTop: Spacing.four },

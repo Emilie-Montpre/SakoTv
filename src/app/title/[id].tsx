@@ -59,6 +59,12 @@ function formatRuntime(minutes: number) {
   return `${hours} h ${rest} min`;
 }
 
+/** Construit la date à partir des composantes plutôt que de parser directement la chaîne "YYYY-MM-DD" — évite toute ambiguïté de fuseau horaire. */
+function formatAirDate(date: string) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 function isGenericSeasonName(name: string, seasonNumber: number) {
   const normalized = name.trim().toLowerCase();
   return normalized === `season ${seasonNumber}` || normalized === `saison ${seasonNumber}`;
@@ -265,38 +271,45 @@ export default function TitleDetailScreen() {
 
             {local.seasons[activeSeason]?.episodes.map((episode) => {
               const still = tmdbImageUrl(episode.stillPath, 'w185');
+              const watched = episode.watchedAt != null;
               return (
                 <Pressable
                   key={episode.id}
-                  style={[styles.episodeRow, { backgroundColor: theme.backgroundElement }]}
+                  style={[styles.episodeRow, { backgroundColor: theme.backgroundElement, opacity: watched ? 0.55 : 1 }]}
                   onPress={() => {
-                    const action = episode.watchedAt ? unmarkEpisodeWatched : markEpisodeWatched;
+                    const action = watched ? unmarkEpisodeWatched : markEpisodeWatched;
                     action(titleId!, episode.id).then(refresh);
                   }}>
-                  {still ? (
-                    <Image source={{ uri: still }} style={styles.episodeStill} contentFit="cover" />
-                  ) : (
-                    <View style={[styles.episodeStill, { backgroundColor: theme.backgroundSelected }]} />
-                  )}
+                  <View style={styles.episodeStillWrap}>
+                    {still ? (
+                      <Image source={{ uri: still }} style={styles.episodeStill} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.episodeStill, { backgroundColor: theme.backgroundSelected }]} />
+                    )}
+                    {watched && (
+                      <View
+                        style={[
+                          styles.watchedBadge,
+                          { backgroundColor: statusColors.completed, borderColor: theme.backgroundElement },
+                        ]}>
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                      </View>
+                    )}
+                  </View>
                   <View style={styles.rowText}>
-                    <ThemedText>
-                      {episode.episodeNumber}. {episode.name}
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.episodeNumber}>
+                      Épisode {episode.episodeNumber}
                     </ThemedText>
+                    <ThemedText>{episode.name}</ThemedText>
                     {episode.airDate && (
                       <ThemedText type="small" themeColor="textSecondary">
-                        {episode.airDate}
+                        {formatAirDate(episode.airDate)}
                       </ThemedText>
                     )}
                   </View>
-                  <View
-                    style={[
-                      styles.checkbox,
-                      {
-                        borderColor: theme.textSecondary,
-                        backgroundColor: episode.watchedAt ? statusColors.completed : 'transparent',
-                      },
-                    ]}
-                  />
+                  <Pressable onPress={() => {}} hitSlop={8} style={styles.episodeDetailButton}>
+                    <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                  </Pressable>
                 </Pressable>
               );
             })}
@@ -404,9 +417,22 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     marginTop: Spacing.one,
   },
-  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5 },
-  episodeStill: { width: 100, aspectRatio: 16 / 9, borderRadius: Spacing.one },
-  rowText: { flex: 1, gap: Spacing.half },
+  episodeStillWrap: { position: 'relative' },
+  episodeStill: { width: 100, aspectRatio: 16 / 9, borderRadius: Spacing.two },
+  watchedBadge: {
+    position: 'absolute',
+    bottom: -7,
+    right: -7,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowText: { flex: 1, gap: Spacing.one },
+  episodeNumber: { textTransform: 'uppercase', letterSpacing: 0.5 },
+  episodeDetailButton: { padding: Spacing.one },
   primaryButton: {
     marginHorizontal: Spacing.three,
     paddingVertical: Spacing.two + 2,
