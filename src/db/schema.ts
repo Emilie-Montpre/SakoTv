@@ -77,7 +77,7 @@ export const libraryItems = sqliteTable(
   (table) => [uniqueIndex('library_items_title_unique').on(table.titleId)],
 );
 
-/** Single-row table (id always 1) holding local, non-sensitive profile info such as the imported pseudo. */
+/** Single-row table (id always 1) reserved for local, non-sensitive profile info — currently unused (pseudo import was removed). */
 export const profile = sqliteTable('profile', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   pseudo: text('pseudo'),

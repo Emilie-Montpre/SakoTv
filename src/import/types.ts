@@ -66,7 +66,6 @@ export const CSV_KINDS = [
   'user_show_special_status',
   'user_tv_show_data',
   'followed_tv_show',
-  'user',
 ] as const;
 
 export type CsvKind = (typeof CSV_KINDS)[number];

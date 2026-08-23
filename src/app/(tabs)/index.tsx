@@ -12,7 +12,6 @@ import { isPaused } from '@/constants/content';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getLastEpisodeWatchedAtByTitle, listLibraryItems, type LibraryListItem } from '@/repository/library';
-import { getPseudo } from '@/repository/profile';
 
 function TitleGrid({ items, theme }: { items: LibraryListItem[]; theme: ReturnType<typeof useTheme> }) {
   return (
@@ -48,13 +47,11 @@ export default function HomeScreen() {
     queryKey: ['last-episode-watched-at'],
     queryFn: getLastEpisodeWatchedAtByTitle,
   });
-  const { data: pseudo } = useQuery({ queryKey: ['profile-pseudo'], queryFn: getPseudo });
 
   useFocusEffect(
     useCallback(() => {
       queryClient.invalidateQueries({ queryKey: ['library-items'] });
       queryClient.invalidateQueries({ queryKey: ['last-episode-watched-at'] });
-      queryClient.invalidateQueries({ queryKey: ['profile-pseudo'] });
     }, [queryClient]),
   );
 
@@ -67,7 +64,7 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <ThemedText type="subtitle" style={styles.title}>
-            {pseudo ? `Bonjour, ${pseudo}` : 'Accueil'}
+            Accueil
           </ThemedText>
 
           <View style={styles.section}>

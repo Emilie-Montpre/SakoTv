@@ -52,7 +52,7 @@ export default function StatsScreen() {
   const handleReset = () => {
     Alert.alert(
       'Réinitialiser les données ?',
-      'Supprime toute la bibliothèque, l\'historique, le pseudo et les échecs d\'import. Irréversible.',
+      'Supprime toute la bibliothèque, l\'historique et les échecs d\'import. Irréversible.',
       [
         { text: 'Annuler', style: 'cancel' },
         {

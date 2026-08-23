@@ -197,13 +197,6 @@ function processFollowedTvShow(rows: Record<string, string>[], shows: Map<string
   }
 }
 
-/** Reads only the `name` column of user.csv — every other column (email, password, tokens…) is left untouched. */
-export function extractPseudo(files: ParsedCsvFile[]): string | null {
-  const userFile = files.find((f) => f.kind === 'user');
-  const name = userFile?.rows[0]?.name?.trim();
-  return name || null;
-}
-
 export function extractCandidates(files: ParsedCsvFile[]): ExtractResult {
   const shows = new Map<string, ImportShowCandidate>();
   const movies = new Map<string, ImportMovieCandidate>();

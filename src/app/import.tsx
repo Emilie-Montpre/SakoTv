@@ -8,13 +8,12 @@ import { tmdbImageUrl } from '@/api/tmdb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { extractCandidates, extractPseudo } from '@/import/extract';
+import { extractCandidates } from '@/import/extract';
 import { findTmdbMatches } from '@/import/match';
 import { pickAndParseZip } from '@/import/parse';
 import type { ParsedCsvFile, ReviewEntry } from '@/import/types';
 import { importMovie, importShow } from '@/repository/import';
 import { recordImportFailure } from '@/repository/import-failures';
-import { setPseudo } from '@/repository/profile';
 import { useTheme } from '@/hooks/use-theme';
 
 type Step = 'idle' | 'files-picked' | 'matching' | 'review' | 'importing' | 'done';
@@ -24,7 +23,6 @@ export default function ImportScreen() {
   const [step, setStep] = useState<Step>('idle');
   const [files, setFiles] = useState<ParsedCsvFile[]>([]);
   const [ignoredCount, setIgnoredCount] = useState(0);
-  const [pseudo, setPseudoState] = useState<string | null>(null);
   const [emptyNameRows, setEmptyNameRows] = useState(0);
   const [entries, setEntries] = useState<ReviewEntry[]>([]);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -39,13 +37,6 @@ export default function ImportScreen() {
       if (!result) return;
       setFiles(result.files);
       setIgnoredCount(result.ignoredCount);
-
-      const foundPseudo = extractPseudo(result.files);
-      if (foundPseudo) {
-        await setPseudo(foundPseudo);
-        setPseudoState(foundPseudo);
-      }
-
       setStep('files-picked');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de lecture du fichier zip.');
@@ -142,7 +133,7 @@ export default function ImportScreen() {
             <ThemedText type="subtitle">Import TV Time</ThemedText>
             <ThemedText themeColor="textSecondary">
               Sélectionne le fichier .zip de ton export TV Time (ex. gdpr-data.zip), déjà transféré sur ce téléphone.
-              Seuls les fichiers utiles sont lus (visionnages, suivi, statuts, pseudo) — le reste est ignoré.
+              Seuls les fichiers utiles sont lus (visionnages, suivi, statuts) — le reste est ignoré.
             </ThemedText>
             <Pressable style={[styles.primaryButton, { backgroundColor: theme.text }]} onPress={handlePickZip}>
               <ThemedText style={{ color: theme.background }}>Choisir le fichier .zip</ThemedText>
@@ -153,7 +144,6 @@ export default function ImportScreen() {
         {step === 'files-picked' && (
           <View style={styles.centerBlock}>
             <ThemedText type="subtitle">Contenu du zip</ThemedText>
-            {pseudo && <ThemedText themeColor="textSecondary">Pseudo détecté : {pseudo}</ThemedText>}
             {files.map((f) => (
               <ThemedText key={f.fileName} type="small" themeColor="textSecondary">
                 ✓ {f.fileName} ({f.rows.length} lignes)

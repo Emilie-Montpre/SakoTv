@@ -23,17 +23,20 @@ Fonctionnalités demandées pour étoffer l'écran Fiche (film/série/animé), p
 - [ ] **Langues** — langue(s) audio et sous-titres disponibles (VF/VO/autres) — à vérifier si TMDB expose cette info de façon fiable (`spoken_languages` existe mais ne dit pas ce qui est réellement doublé/sous-titré pour un titre donné).
 - [ ] **Où regarder** *(facultatif, priorité basse)* — plateformes de streaming disponibles par pays (type JustWatch), avec bouton pour ouvrir l'app correspondante (Netflix, Prime, etc.) et distinction abonnement/gratuit. **Confirmé : pas besoin d'intégrer JustWatch séparément** (pas d'API publique en libre accès pour eux) — leurs données sont déjà agrégées gratuitement dans TMDB via `/movie|tv/{id}/watch/providers`.
 
-## Backlog — Import
+## Backlog — Import : mécanisme de revue "façon Tinder" (gros chantier, pas encore assez déterminé)
 
-- [ ] **Revue "façon Tinder" des correspondances auto-confirmées** — même quand le matching TMDB automatique trouve *une* correspondance avec un score correct, ce n'est pas toujours la bonne (ex. mauvais film du même nom, remake vs original). Idée : après l'import, écran de swipe passant en revue chaque titre confirmé automatiquement — swipe pour garder, swipe pour rejeter (renvoie l'entrée dans "Échec import" pour recherche manuelle). Volontairement pas fait tout de suite : fastidieux à valider un par un tant qu'on corrige encore des bugs plus fondamentaux sur les statuts. **Demandé le 2026-08-21.**
+Regroupe deux besoins qui partagent le même mécanisme de swipe (garder à droite / rejeter à gauche), mais dont les détails restent à préciser avant de s'y attaquer — pas juste un simple écran de confirmation. **Demandé le 2026-08-21, précisé le 2026-08-23.**
 
-- [ ] **Second mode d'import : liste de titres en texte libre** — sur l'écran Import, proposer un choix entre le zip GDPR actuel et une saisie/collage de plusieurs titres en texte (un par ligne). **Demandé le 2026-08-21.**
-  - [ ] Chaque titre de la liste passe par le matching TMDB (même logique que pour le zip), puis par l'écran de revue "façon Tinder" ci-dessus (réutilisation, pas un flux séparé) pour confirmer/corriger la correspondance
+- [ ] **Revue des correspondances auto-confirmées après un import zip** — même quand le matching TMDB automatique trouve *une* correspondance avec un score correct, ce n'est pas toujours la bonne (ex. mauvais film du même nom, remake vs original). Écran de swipe après l'import : swipe pour garder, swipe pour rejeter (renvoie l'entrée dans "Échec import" pour recherche manuelle).
+  - [ ] **Précisé le 2026-08-23** : pendant la revue, afficher aussi des infos sur ce qui a été vu/pas vu pour ce titre (progression réelle tirée du CSV importé) — pas juste confirmer/rejeter à l'aveugle, un indice de plus pour juger si le match est le bon.
+  - Volontairement pas fait tout de suite : fastidieux à valider un par un tant qu'on corrige encore des bugs plus fondamentaux sur les statuts.
+- [ ] **Second mode d'import : liste de titres en texte libre** — sur l'écran Import, proposer un choix entre le zip GDPR actuel et une saisie/collage de plusieurs titres en texte (un par ligne). Chaque titre passe par le matching TMDB, puis par le même écran de swipe que ci-dessus pour confirmer/rejeter la correspondance.
   - [ ] **Différence clé avec l'import zip** : un titre saisi en texte n'a aucune donnée de progression (pas de CSV TV Time derrière) — l'écran de revue doit donc, pour chaque titre confirmé, demander en plus :
-    - Pour une série/animé : combien d'épisodes (ou lesquels précisément) ont déjà été vus
+    - Pour une série/animé : combien d'épisodes (ou jusqu'où précisément) ont déjà été vus
     - Le statut voulu à l'issue de la saisie : continuer à suivre (`watching`, avec la progression indiquée) ou déjà terminé (`completed`)
   - [ ] Pour un film, plus simple : juste demander si déjà vu (`completed`) ou à voir (`to_watch`) — cf. décision du 2026-08-21 de ne plus avoir de "en cours" pour les films
   - [ ] Question ouverte à trancher le moment venu : saisie épisode par épisode (case à cocher par épisode, comme sur la fiche) vs. juste "vu jusqu'à la saison X épisode Y" (plus rapide mais moins précis si des épisodes ont été sautés)
+- [ ] **Pourquoi ce chantier est classé "gros"** : potentiellement 2 flux différents (zip vs texte libre) partageant un même composant de swipe, mais avec des données affichées différentes selon le cas (progression réelle à afficher vs progression à construire depuis zéro). Pas encore assez précisé pour être découpé en tâches concrètes — à détailler avant de commencer.
 
 ## Backlog — Stats interactives
 
@@ -119,12 +122,13 @@ Suite à la revue du schéma complet de l'export GDPR (`headers_summary.txt`, ho
   - [ ] Croiser avec le mécanisme d'échecs d'import déjà existant (`import_failures`) — un écart de volume pourrait s'expliquer par des titres non matchés à TMDB plutôt qu'un vrai bug d'extraction. **Utilisateur : "à voir".**
 - [ ] Pour la suite : demander un exemple de ligne réelle par fichier (comme fait précédemment pour `tracking-prod-records`, `tracking-prod-records-v2`, `user_show_special_status`) avant d'écrire le moindre code de parsing — même règle que jusqu'ici, pas de heuristique devinée à l'aveugle.
 
-## Backlog — Accueil : retirer le pseudo et le message de bienvenue
+## Fait — Accueil : retrait du pseudo et du message de bienvenue
 
-**Demandé le 2026-08-22.**
+**Demandé le 2026-08-22, précisé et implémenté le 2026-08-23.**
 
-- [ ] Ne plus aller chercher le pseudo importé (`getPseudo()` dans [profile.ts](src/repository/profile.ts)) sur l'écran Accueil
-- [ ] Retirer complètement le "Bonjour, {pseudo}" de [index.tsx](src/app/(tabs)/index.tsx) — pas de message de bienvenue à remettre à la place, juste enlever
+- Le pseudo n'est plus extrait du zip à l'import (suppression de `extractPseudo()` et du fichier CSV `user` du périmètre reconnu)
+- "Bonjour, {pseudo}" retiré de l'[Accueil](src/app/(tabs)/index.tsx), remplacé par un titre fixe "Accueil"
+- `getPseudo`/`setPseudo` et [profile.ts](src/repository/profile.ts) supprimés (devenus inutilisés) ; la table `profile` en base est conservée (utilisée par la Réinitialisation) mais n'est plus jamais écrite
 
 ## Backlog — Recherche : construire les vraies recommandations
 
@@ -173,6 +177,14 @@ Actuellement, un épisode est juste une ligne (numéro + nom + case à cocher) d
 - [ ] **Photos multiples de la personne** — l'utilisateur pense que seul IMDb propose ça, mais **à corriger** : TMDB a en fait son propre endpoint `/person/{id}/images` avec plusieurs photos par personne, pas juste une seule. À vérifier la richesse réelle (peut être plus pauvre qu'IMDb en pratique, mais l'API existe).
 - [ ] **Question ouverte non résolue par l'utilisateur** : est-ce que les données TMDB sur une personne seront jugées suffisantes, ou faut-il chercher une source plus complète (IMDb) ? Pas de décision prise — l'utilisateur trouve TMDB potentiellement incomplet par rapport à IMDb sur ce point précis. IMDb n'a pas d'API publique officielle (contrairement à TMDB) — à creuser si cette piste est retenue un jour (probablement via OMDb, déjà mentionné ailleurs dans ce backlog pour les notes, mais OMDb ne propose pas de bio/filmographie détaillée).
 - [ ] Tâche volontairement séparée de "Détail d'un épisode" ci-dessus (celle-ci alimente les liens cliquables vers les personnes) — à ne pas fusionner, chantier distinct avec ses propres zones d'ombre à éclaircir le moment venu.
+
+## Backlog — Tests unitaires sur la logique la plus fragile
+
+Aucun test automatisé dans le projet actuellement. **Demandé le 2026-08-23**, suite à une revue de code générale. Pas des tests avec gestes/E2E (pas jugé utile ici, utilisatrice unique avec un flux de test manuel déjà établi sur téléphone réel) — des tests unitaires ciblés sur les fonctions pures/logique métier les plus à risque de régression silencieuse.
+
+- [ ] **Pipeline d'import** (`parse-helpers.ts`, `extract.ts`) — priorité la plus haute : repose sur un format CSV TV Time non documenté, deviné à partir d'exemples réels. Une régression ici corromprait des données d'import sans avertissement visible.
+- [ ] **Logique de statut** (`maybeCompleteShow` dans [library.ts](src/repository/library.ts), `isPaused`/`isUpToDate` dans [content.ts](src/constants/content.ts)) — la logique qui a déjà généré le plus d'allers-retours dans le projet (saison 0, épisodes pas encore diffusés). Fonctions pures pour la plupart, rapides à tester.
+- [ ] **Matching TMDB** (`match.ts`, fonction `similarity()`) — un mauvais score peut faire matcher silencieusement le mauvais titre pendant un import.
 
 ## Backlog — Accueil : "À venir" en vrai calendrier
 
