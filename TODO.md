@@ -146,11 +146,9 @@ Quand une série/film/animé atteint le statut "Terminé", petite animation (con
 - [ ] **Question ouverte** : type d'animation exact (confettis, autre) et bibliothèque à utiliser (ex. `react-native-confetti-cannon` ou équivalent) — à définir le moment venu.
 - [ ] Où : probablement sur la fiche détail au moment de la transition, mais à confirmer.
 
-## Backlog — Meilleur visuel pour la liste d'épisodes
+## Fait — Meilleur visuel pour la liste d'épisodes
 
-Chaque ligne d'épisode (checkbox + numéro + nom + date de sortie) devrait aussi afficher une image représentative de l'épisode. **Demandé le 2026-08-23.**
-
-- [ ] Utiliser `episodes.stillPath` (déjà en base, TMDB fournit une image par épisode) — pas besoin de nouvel appel API, juste jamais affiché dans l'UI actuellement.
+Chaque ligne d'épisode affiche maintenant une vignette (`episodes.stillPath`, format 16:9) avant la checkbox, en plus du numéro/nom/date déjà présents. **Demandé le 2026-08-23, implémenté le 2026-08-23** dans [title/[id].tsx](src/app/title/[id].tsx).
 
 ## Backlog — Marquer toute une saison vue en un coup
 

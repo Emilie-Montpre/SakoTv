@@ -263,35 +263,43 @@ export default function TitleDetailScreen() {
               })}
             </ScrollView>
 
-            {local.seasons[activeSeason]?.episodes.map((episode) => (
-              <Pressable
-                key={episode.id}
-                style={[styles.episodeRow, { backgroundColor: theme.backgroundElement }]}
-                onPress={() => {
-                  const action = episode.watchedAt ? unmarkEpisodeWatched : markEpisodeWatched;
-                  action(titleId!, episode.id).then(refresh);
-                }}>
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      borderColor: theme.textSecondary,
-                      backgroundColor: episode.watchedAt ? statusColors.completed : 'transparent',
-                    },
-                  ]}
-                />
-                <View style={styles.rowText}>
-                  <ThemedText numberOfLines={1}>
-                    {episode.episodeNumber}. {episode.name}
-                  </ThemedText>
-                  {episode.airDate && (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {episode.airDate}
-                    </ThemedText>
+            {local.seasons[activeSeason]?.episodes.map((episode) => {
+              const still = tmdbImageUrl(episode.stillPath, 'w185');
+              return (
+                <Pressable
+                  key={episode.id}
+                  style={[styles.episodeRow, { backgroundColor: theme.backgroundElement }]}
+                  onPress={() => {
+                    const action = episode.watchedAt ? unmarkEpisodeWatched : markEpisodeWatched;
+                    action(titleId!, episode.id).then(refresh);
+                  }}>
+                  {still ? (
+                    <Image source={{ uri: still }} style={styles.episodeStill} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.episodeStill, { backgroundColor: theme.backgroundSelected }]} />
                   )}
-                </View>
-              </Pressable>
-            ))}
+                  <View style={styles.rowText}>
+                    <ThemedText>
+                      {episode.episodeNumber}. {episode.name}
+                    </ThemedText>
+                    {episode.airDate && (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {episode.airDate}
+                      </ThemedText>
+                    )}
+                  </View>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        borderColor: theme.textSecondary,
+                        backgroundColor: episode.watchedAt ? statusColors.completed : 'transparent',
+                      },
+                    ]}
+                  />
+                </Pressable>
+              );
+            })}
           </View>
         )}
         </ScrollView>
@@ -391,11 +399,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,
-    padding: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.two,
     borderRadius: Spacing.two,
     marginTop: Spacing.one,
   },
-  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2 },
+  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5 },
+  episodeStill: { width: 100, aspectRatio: 16 / 9, borderRadius: Spacing.one },
   rowText: { flex: 1, gap: Spacing.half },
   primaryButton: {
     marginHorizontal: Spacing.three,
