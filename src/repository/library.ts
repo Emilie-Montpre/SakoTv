@@ -226,6 +226,25 @@ export async function markEpisodeWatched(titleId: number, episodeId: number, wat
   await maybeCompleteShow(titleId);
 }
 
+/** Marque tous les épisodes fournis comme vus en une fois — recalcule le statut du titre une seule fois à la fin plutôt qu'à chaque épisode. */
+export async function markSeasonWatched(titleId: number, episodeIds: number[], watchedAt: number = Date.now()) {
+  for (const episodeId of episodeIds) {
+    const existing = await db.query.watchedEpisodes.findFirst({
+      where: and(eq(watchedEpisodes.titleId, titleId), eq(watchedEpisodes.episodeId, episodeId)),
+    });
+    if (existing) {
+      await db
+        .update(watchedEpisodes)
+        .set({ watchedAt, rewatchCount: existing.rewatchCount + 1 })
+        .where(eq(watchedEpisodes.id, existing.id));
+    } else {
+      await db.insert(watchedEpisodes).values({ titleId, episodeId, watchedAt });
+    }
+  }
+
+  await maybeCompleteShow(titleId);
+}
+
 export async function unmarkEpisodeWatched(titleId: number, episodeId: number) {
   await db
     .delete(watchedEpisodes)

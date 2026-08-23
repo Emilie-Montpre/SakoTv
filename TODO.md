@@ -150,9 +150,16 @@ Quand une série/film/animé atteint le statut "Terminé", petite animation (con
 
 Chaque ligne d'épisode affiche maintenant une vignette (`episodes.stillPath`, format 16:9) avant la checkbox, en plus du numéro/nom/date déjà présents. **Demandé le 2026-08-23, implémenté le 2026-08-23** dans [title/[id].tsx](src/app/title/[id].tsx).
 
-## Backlog — Marquer toute une saison vue en un coup
+## Fait — Marquer toute une saison vue en un coup
 
-Appui long sur un chip de saison (dans le sélecteur de saisons de la Fiche) → popup de confirmation ("marquer tous les épisodes de cette saison comme vus ?") → si confirmé, marque tous les épisodes de la saison concernée comme vus d'un coup. **Demandé le 2026-08-22/23.**
+Appui long sur un chip de saison (dans le sélecteur de saisons de la Fiche) → popup de confirmation → si confirmé, marque tous les épisodes de la saison concernée comme vus d'un coup. **Demandé le 2026-08-22/23, fait le 2026-08-23** : `markSeasonWatched()` dans [library.ts](src/repository/library.ts) + `onLongPress` sur le chip dans [title/[id].tsx](src/app/title/[id].tsx). Sans effet si la saison est déjà entièrement vue.
+
+## Backlog — Fiche : défiler jusqu'au prochain épisode à valider
+
+Quand on tape sur un chip de saison pas encore entièrement vue (changement de saison active), la liste d'épisodes devrait défiler automatiquement jusqu'au premier épisode non-vu de cette saison, au lieu de rester où elle était/remonter en haut. **Demandé le 2026-08-23.**
+
+- [ ] Techniquement : nécessite de mesurer la position de chaque ligne d'épisode dans le scroll (ex. `onLayout` par ligne + `ref` sur le `ScrollView`) pour pouvoir défiler (`scrollTo`) jusqu'à la bonne position — plus complexe que les ajustements récents sur cet écran.
+- [ ] Aucun effet si la saison est déjà entièrement vue (pas de "prochain épisode" à viser).
 
 ## Backlog — Détail d'un épisode (popup)
 

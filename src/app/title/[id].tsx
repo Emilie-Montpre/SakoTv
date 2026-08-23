@@ -19,6 +19,7 @@ import {
   addToLibrary,
   markEpisodeWatched,
   markMovieWatched,
+  markSeasonWatched,
   removeFromLibrary,
   setFavorite,
   setStatus,
@@ -259,6 +260,20 @@ export default function TitleDetailScreen() {
                   <Pressable
                     key={season.id}
                     onPress={() => setActiveSeason(index)}
+                    onLongPress={() => {
+                      if (seasonFullyWatched) return;
+                      Alert.alert(
+                        'Marquer la saison comme vue ?',
+                        `Marquer tous les épisodes de ${seasonLabel(season)} comme vus ?`,
+                        [
+                          { text: 'Annuler', style: 'cancel' },
+                          {
+                            text: 'Marquer vue',
+                            onPress: () => markSeasonWatched(titleId!, season.episodes.map((ep) => ep.id)).then(refresh),
+                          },
+                        ],
+                      );
+                    }}
                     style={[styles.seasonChip, { backgroundColor }]}>
                     <ThemedText type="small" style={{ color: textColor }}>
                       {seasonFullyWatched ? '✓ ' : ''}
