@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getMovieDetails, getTvDetails, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-types';
@@ -95,6 +95,7 @@ function seasonLabel(season: SeasonWithEpisodes) {
 export default function TitleDetailScreen() {
   const { id, resolveFailureId } = useLocalSearchParams<{ id: string; resolveFailureId?: string }>();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [activeSeason, setActiveSeason] = useState(0);
   const [confirming, setConfirming] = useState(false);
@@ -146,14 +147,18 @@ export default function TitleDetailScreen() {
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top']}>
-          <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={12}>
+        <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
+          <Pressable
+            onPress={() => router.back()}
+            style={[styles.backButton, { top: insets.top + Spacing.two }]}
+            hitSlop={12}
+          >
             <Ionicons name="chevron-back" size={24} color={theme.text} />
           </Pressable>
           <View style={styles.center}>
             <ActivityIndicator />
           </View>
-        </SafeAreaView>
+        </View>
       </>
     );
   }
@@ -173,11 +178,18 @@ export default function TitleDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top']}>
-        <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={12}>
+      <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={[styles.backButton, { top: insets.top + Spacing.two }]}
+          hitSlop={12}
+        >
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </Pressable>
-        <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.scroll}>
+        <ScrollView
+          style={{ backgroundColor: theme.background }}
+          contentContainerStyle={[styles.scroll, { paddingTop: insets.top }]}
+        >
           {backdrop && <Image source={{ uri: backdrop }} style={styles.backdrop} contentFit="cover" />}
 
         <View style={styles.headerRow}>
@@ -362,7 +374,7 @@ export default function TitleDetailScreen() {
           </View>
         )}
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </>
   );
 }
@@ -440,7 +452,7 @@ function LibraryActions({
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   safeArea: { flex: 1 },
-  backButton: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, alignSelf: 'flex-start' },
+  backButton: { position: 'absolute', left: Spacing.three, zIndex: 10, padding: Spacing.two },
   scroll: { paddingBottom: Spacing.six, gap: Spacing.three },
   backdrop: { width: '100%', height: 200 },
   headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three, marginTop: -Spacing.five },

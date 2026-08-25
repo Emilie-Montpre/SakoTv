@@ -7,6 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "sakotv",
     "userInterfaceStyle": "automatic",
+    "androidStatusBar": {
+      "translucent": false
+    },
     "android": {
       "package": "com.sakotv.app",
       "adaptiveIcon": {
