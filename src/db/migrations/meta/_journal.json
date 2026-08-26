@@ -29,6 +29,13 @@
       "when": 1787322247679,
       "tag": "0003_talented_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787709036530,
+      "tag": "0004_tense_boomer",
+      "breakpoints": true
     }
   ]
 }

@@ -73,6 +73,8 @@ export const libraryItems = sqliteTable(
     /** Films uniquement (pas de découpage en épisodes) : date du dernier visionnage. */
     watchedAt: integer('watched_at'),
     rewatchCount: integer('rewatch_count').notNull().default(0),
+    /** Pause volontaire, indépendante de la détection auto (isPaused() dans content.ts) — un titre reste "watching" en dessous, juste avec ce drapeau en plus. */
+    manuallyPaused: integer('manually_paused', { mode: 'boolean' }).notNull().default(false),
   },
   (table) => [uniqueIndex('library_items_title_unique').on(table.titleId)],
 );

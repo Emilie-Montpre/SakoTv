@@ -17,6 +17,12 @@ export const statusColors: Record<LibraryStatus, string> = {
 export const PAUSED_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
 export const pausedLabel = 'En pause';
 export const pausedColor = '#8B5CF6';
+/** Raison de la pause, affichée dans le popup "Reprendre ?" de la Fiche (pas sur le bouton lui-même, qui reste un simple "En pause"). */
+export function pauseReasonMessage(manuallyPaused: boolean) {
+  return manuallyPaused
+    ? 'Cette mise en pause a été faite manuellement.'
+    : "Cette mise en pause a été détectée automatiquement (inactivité depuis plus de 30 jours).";
+}
 
 /** Une série "watching" sans épisode validé depuis 30 jours est affichée comme "En pause" plutôt que "En cours" — calculé à l'affichage, pas un statut stocké en base (cf. maybeCompleteShow, qui ne connaît que to_watch/watching/completed/dropped). */
 export function isPaused(status: LibraryStatus, lastEpisodeWatchedAt: number | undefined, now: number = Date.now()) {

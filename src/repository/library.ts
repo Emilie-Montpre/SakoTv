@@ -143,6 +143,7 @@ export interface LibraryListItem {
   status: LibraryStatus;
   statusTmdb: string | null;
   isFavorite: boolean;
+  manuallyPaused: boolean;
   addedAt: number;
 }
 
@@ -158,6 +159,7 @@ export async function listLibraryItems(): Promise<LibraryListItem[]> {
       status: libraryItems.status,
       statusTmdb: titles.statusTmdb,
       isFavorite: libraryItems.isFavorite,
+      manuallyPaused: libraryItems.manuallyPaused,
       addedAt: libraryItems.addedAt,
     })
     .from(libraryItems)
@@ -188,6 +190,35 @@ export async function setFavorite(titleId: number, isFavorite: boolean) {
   await db.update(libraryItems).set({ isFavorite }).where(eq(libraryItems.titleId, titleId));
 }
 
+/** "Mettre en pause" depuis le bouton unique de la Fiche — le titre reste "watching" en dessous, seul le drapeau change. */
+export async function pauseManually(titleId: number) {
+  await db.update(libraryItems).set({ manuallyPaused: true }).where(eq(libraryItems.titleId, titleId));
+}
+
+/**
+ * "Reprendre" depuis le bouton unique — efface la pause manuelle si elle existe. Si le titre n'était en
+ * pause que par la détection auto (30j d'inactivité), cette fonction n'a rien à corriger : le statut
+ * réel était déjà "watching", et l'affichage recalculé restera "En pause" tant qu'aucun épisode n'est
+ * validé — comportement voulu, cf. TODO "Pause volontaire".
+ */
+export async function resumeManualPause(titleId: number) {
+  await db.update(libraryItems).set({ manuallyPaused: false }).where(eq(libraryItems.titleId, titleId));
+}
+
+/** Abandonner depuis le bouton unique (appui long sur "En cours"/"En pause") — garde l'historique déjà accumulé. */
+export async function dropTitle(titleId: number) {
+  await db.update(libraryItems).set({ status: 'dropped', manuallyPaused: false }).where(eq(libraryItems.titleId, titleId));
+}
+
+/** "Reprendre" depuis "Abandonné" — recalcule l'état réel (à regarder ou en cours) à partir de la progression déjà connue. */
+export async function resumeFromDropped(titleId: number) {
+  const nextStatus = await computeStatusFromEpisodes(titleId);
+  await db
+    .update(libraryItems)
+    .set({ status: nextStatus, manuallyPaused: false })
+    .where(eq(libraryItems.titleId, titleId));
+}
+
 export async function markMovieWatched(titleId: number, watchedAt: number = Date.now()) {
   const existing = await db.query.libraryItems.findFirst({ where: eq(libraryItems.titleId, titleId) });
   const rewatchCount = existing?.watchedAt ? existing.rewatchCount + 1 : 0;
@@ -200,13 +231,6 @@ export async function markMovieWatched(titleId: number, watchedAt: number = Date
   } else {
     await db.insert(libraryItems).values({ titleId, status: 'completed', watchedAt, rewatchCount });
   }
-}
-
-export async function unmarkMovieWatched(titleId: number) {
-  await db
-    .update(libraryItems)
-    .set({ status: 'to_watch', watchedAt: null, rewatchCount: 0 })
-    .where(eq(libraryItems.titleId, titleId));
 }
 
 export async function markEpisodeWatched(titleId: number, episodeId: number, watchedAt: number = Date.now()) {
@@ -223,6 +247,8 @@ export async function markEpisodeWatched(titleId: number, episodeId: number, wat
     await db.insert(watchedEpisodes).values({ titleId, episodeId, watchedAt });
   }
 
+  // Valider un épisode est un signal suffisant pour lever une pause manuelle — pas besoin de popup "Reprendre ?" ici.
+  await resumeManualPause(titleId);
   await maybeCompleteShow(titleId);
 }
 
@@ -242,6 +268,7 @@ export async function markSeasonWatched(titleId: number, episodeIds: number[], w
     }
   }
 
+  await resumeManualPause(titleId);
   await maybeCompleteShow(titleId);
 }
 
@@ -252,15 +279,10 @@ export async function unmarkEpisodeWatched(titleId: number, episodeId: number) {
 }
 
 /**
- * Recomputes a show's status purely from its watched-episode facts (bidirectional: can go back down to
- * to_watch just as well as up to watching/completed) — safe to call repeatedly, including as a bulk
- * recompute over existing data when the completion rules themselves change, without touching completed
- * or dropped shows (those reflect an explicit signal, not something to infer from episode counts).
+ * Statut réel d'une série purement dérivé de ses épisodes vus — factorisé pour être appelé aussi bien
+ * en routine (maybeCompleteShow) qu'en reprise explicite depuis "Abandonné" (resumeFromDropped).
  */
-export async function maybeCompleteShow(titleId: number) {
-  const libraryItem = await db.query.libraryItems.findFirst({ where: eq(libraryItems.titleId, titleId) });
-  if (!libraryItem || libraryItem.status === 'completed' || libraryItem.status === 'dropped') return;
-
+async function computeStatusFromEpisodes(titleId: number): Promise<LibraryStatus> {
   // La saison 0 (spéciaux/OVA) est exclue du calcul de complétion : ce sont des épisodes bonus, pas
   // le cœur de la série — sinon une série entièrement vue reste bloquée en "en cours" tant que ces
   // extras (souvent absents du visionnage d'origine) ne sont pas cochés.
@@ -280,7 +302,20 @@ export async function maybeCompleteShow(titleId: number) {
   const watchedIds = new Set(watched.map((w) => w.episodeId));
   const allWatched = releasedEpisodes.length > 0 && releasedEpisodes.every((ep) => watchedIds.has(ep.id));
 
-  const nextStatus: LibraryStatus = allWatched ? 'completed' : watchedIds.size > 0 ? 'watching' : 'to_watch';
+  return allWatched ? 'completed' : watchedIds.size > 0 ? 'watching' : 'to_watch';
+}
+
+/**
+ * Recomputes a show's status purely from its watched-episode facts (bidirectional: can go back down to
+ * to_watch just as well as up to watching/completed) — safe to call repeatedly, including as a bulk
+ * recompute over existing data when the completion rules themselves change, without touching completed
+ * or dropped shows (those reflect an explicit signal, not something to infer from episode counts).
+ */
+export async function maybeCompleteShow(titleId: number) {
+  const libraryItem = await db.query.libraryItems.findFirst({ where: eq(libraryItems.titleId, titleId) });
+  if (!libraryItem || libraryItem.status === 'completed' || libraryItem.status === 'dropped') return;
+
+  const nextStatus = await computeStatusFromEpisodes(titleId);
   if (nextStatus !== libraryItem.status) {
     await db.update(libraryItems).set({ status: nextStatus }).where(eq(libraryItems.id, libraryItem.id));
   }

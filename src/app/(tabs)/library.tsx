@@ -89,7 +89,7 @@ export default function LibraryScreen() {
   const items = (data ?? []).filter((item) => {
     if (!matchesContentTypeFilter(item, typeFilter)) return false;
     if (normalizedSearch && !item.name.toLowerCase().includes(normalizedSearch)) return false;
-    const paused = isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId));
+    const paused = item.manuallyPaused || isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId));
     const upToDate = isUpToDate(item.status, item.mediaType, item.statusTmdb);
     if (statusFilter === 'all') return true;
     if (statusFilter === 'paused') return paused;
@@ -178,7 +178,7 @@ export default function LibraryScreen() {
               contentContainerStyle={styles.grid}
               renderItem={({ item }) => {
                 const poster = tmdbImageUrl(item.posterPath, 'w185');
-                const paused = isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId));
+                const paused = item.manuallyPaused || isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId));
                 const upToDate = isUpToDate(item.status, item.mediaType, item.statusTmdb);
                 const dotColor = paused ? pausedColor : upToDate ? upToDateColor : statusColors[item.status];
                 return (

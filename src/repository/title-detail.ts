@@ -29,6 +29,7 @@ export interface TitleLocalState {
   name: string;
   status: LibraryStatus | null;
   isFavorite: boolean;
+  manuallyPaused: boolean;
   movieWatchedAt: number | null;
   movieRewatchCount: number;
   seasons: SeasonWithEpisodes[];
@@ -84,6 +85,7 @@ export async function loadTitleLocalState(titleId: number): Promise<TitleLocalSt
     name: title.name,
     status: libraryItem?.status ?? null,
     isFavorite: libraryItem?.isFavorite ?? false,
+    manuallyPaused: libraryItem?.manuallyPaused ?? false,
     movieWatchedAt: libraryItem?.watchedAt ?? null,
     movieRewatchCount: libraryItem?.rewatchCount ?? 0,
     seasons: seasonsWithEpisodes,

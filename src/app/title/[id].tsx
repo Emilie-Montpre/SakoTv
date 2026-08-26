@@ -10,24 +10,51 @@ import { getMovieDetails, getTvDetails, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { displayStatusLabel, statusColors, statusLabels } from '@/constants/content';
+
+import {
+  displayStatusLabel,
+  isPaused,
+  isUpToDate,
+  pauseReasonMessage,
+  pausedColor,
+  pausedLabel,
+  statusColors,
+  statusLabels,
+  upToDateColor,
+} from '@/constants/content';
 import { Spacing } from '@/constants/theme';
 import type { LibraryStatus, MediaType } from '@/db/schema';
 import { useTheme } from '@/hooks/use-theme';
 import { resolveImportFailure } from '@/repository/import-failures';
 import {
   addToLibrary,
+  dropTitle,
   markEpisodeWatched,
   markMovieWatched,
   markSeasonWatched,
+  pauseManually,
   removeFromLibrary,
+  resumeFromDropped,
+  resumeManualPause,
   setFavorite,
   setStatus,
   unmarkEpisodeWatched,
-  unmarkMovieWatched,
   upsertTitleFromTmdb,
 } from '@/repository/library';
 import { loadTitleLocalState, type SeasonWithEpisodes } from '@/repository/title-detail';
+
+/** Dernier épisode validé pour ce titre — calculé côté client à partir des saisons déjà chargées, pour éviter une requête dédiée en plus de listLibraryItems/getLastEpisodeWatchedAtByTitle (utilisées ailleurs pour la Bibliothèque/Accueil). */
+function computeLastEpisodeWatchedAt(seasons: SeasonWithEpisodes[]): number | undefined {
+  let latest: number | undefined;
+  for (const season of seasons) {
+    for (const episode of season.episodes) {
+      if (episode.watchedAt != null && (latest == null || episode.watchedAt > latest)) {
+        latest = episode.watchedAt;
+      }
+    }
+  }
+  return latest;
+}
 
 const SYNOPSIS_COLLAPSED_LINES = 4;
 // Au-delà de ce nombre de caractères, un synopsis dépasse quasi systématiquement 4 lignes sur un écran de
@@ -150,10 +177,10 @@ export default function TitleDetailScreen() {
         <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
           <Pressable
             onPress={() => router.back()}
-            style={[styles.backButton, { top: insets.top + Spacing.two }]}
+            style={[styles.floatingIconButton, styles.backButton, { top: insets.top + Spacing.two }]}
             hitSlop={12}
           >
-            <Ionicons name="chevron-back" size={24} color={theme.text} />
+            <Ionicons name="chevron-back" size={22} color="#fff" />
           </Pressable>
           <View style={styles.center}>
             <ActivityIndicator />
@@ -181,11 +208,20 @@ export default function TitleDetailScreen() {
       <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <Pressable
           onPress={() => router.back()}
-          style={[styles.backButton, { top: insets.top + Spacing.two }]}
+          style={[styles.floatingIconButton, styles.backButton, { top: insets.top + Spacing.two }]}
           hitSlop={12}
         >
-          <Ionicons name="chevron-back" size={24} color={theme.text} />
+          <Ionicons name="chevron-back" size={22} color="#fff" />
         </Pressable>
+        {!resolveFailureId && titleId != null && local?.status != null && (
+          <Pressable
+            onPress={() => setFavorite(titleId, !local.isFavorite).then(refresh)}
+            style={[styles.floatingIconButton, styles.favoriteButton, { top: insets.top + Spacing.two }]}
+            hitSlop={12}
+          >
+            <Ionicons name={local.isFavorite ? 'star' : 'star-outline'} size={20} color="#fff" />
+          </Pressable>
+        )}
         <ScrollView
           style={{ backgroundColor: theme.background }}
           contentContainerStyle={[styles.scroll, { paddingTop: insets.top }]}
@@ -255,8 +291,10 @@ export default function TitleDetailScreen() {
             titleId={titleId}
             mediaType={mediaType}
             status={local?.status ?? null}
-            isFavorite={local?.isFavorite ?? false}
-            movieWatched={local?.movieWatchedAt != null}
+            manuallyPaused={local?.manuallyPaused ?? false}
+            lastEpisodeWatchedAt={local ? computeLastEpisodeWatchedAt(local.seasons) : undefined}
+            movieWatchedAt={local?.movieWatchedAt ?? null}
+            movieRewatchCount={local?.movieRewatchCount ?? 0}
             tvStatus={tvStatus}
             onChanged={refresh}
           />
@@ -379,20 +417,154 @@ export default function TitleDetailScreen() {
   );
 }
 
+function confirmAction(title: string, confirmLabel: string, onConfirm: () => void, destructive = false, message?: string) {
+  Alert.alert(title, message, [
+    { text: 'Annuler', style: 'cancel' },
+    { text: confirmLabel, style: destructive ? 'destructive' : 'default', onPress: onConfirm },
+  ]);
+}
+
+/**
+ * Bouton central unique : son libellé/couleur reflètent toujours le statut réellement dérivé des
+ * données (jamais choisi à la main) — remplace l'ancienne rangée de chips par une action contextuelle
+ * selon l'état, cf. table de transitions du TODO ("Fiche détail : refonte du bouton de statut").
+ */
+function StatusButton({
+  titleId,
+  mediaType,
+  status,
+  tvStatus,
+  manuallyPaused,
+  lastEpisodeWatchedAt,
+  movieWatchedAt,
+  movieRewatchCount,
+  onChanged,
+}: {
+  titleId: number;
+  mediaType: MediaType;
+  status: LibraryStatus;
+  tvStatus?: string;
+  manuallyPaused: boolean;
+  lastEpisodeWatchedAt: number | undefined;
+  movieWatchedAt: number | null;
+  movieRewatchCount: number;
+  onChanged: () => void;
+}) {
+  if (mediaType === 'movie') {
+    if (status === 'dropped') {
+      return (
+        <Pressable
+          style={[styles.primaryButton, { backgroundColor: statusColors.dropped }]}
+          onPress={() => confirmAction('Reprendre ce film ?', 'Reprendre', () => setStatus(titleId, 'to_watch').then(onChanged))}>
+          <ThemedText style={{ color: '#fff' }}>{statusLabels.dropped}</ThemedText>
+        </Pressable>
+      );
+    }
+
+    if (movieWatchedAt != null) {
+      const watchCount = movieRewatchCount + 1;
+      return (
+        <Pressable
+          style={[styles.primaryButton, { backgroundColor: statusColors.completed }]}
+          onLongPress={() =>
+            confirmAction('Marquer comme revu ?', 'Revu', () => markMovieWatched(titleId).then(onChanged))
+          }>
+          <ThemedText style={{ color: '#fff' }}>{watchCount > 1 ? `✓ Vu ×${watchCount}` : '✓ Vu'}</ThemedText>
+        </Pressable>
+      );
+    }
+
+    return (
+      <Pressable
+        style={[styles.primaryButton, { backgroundColor: statusColors.to_watch }]}
+        onPress={() => removeFromLibrary(titleId).then(onChanged)}
+        onLongPress={() => confirmAction('Marquer comme vu ?', 'Vu', () => markMovieWatched(titleId).then(onChanged))}>
+        <ThemedText style={{ color: '#fff' }}>{statusLabels.to_watch}</ThemedText>
+      </Pressable>
+    );
+  }
+
+  // Séries/animés
+  if (status === 'dropped') {
+    return (
+      <Pressable
+        style={[styles.primaryButton, { backgroundColor: statusColors.dropped }]}
+        onPress={() => confirmAction('Reprendre ce titre ?', 'Reprendre', () => resumeFromDropped(titleId).then(onChanged))}>
+        <ThemedText style={{ color: '#fff' }}>{statusLabels.dropped}</ThemedText>
+      </Pressable>
+    );
+  }
+
+  if (status === 'completed') {
+    const upToDate = isUpToDate(status, mediaType, tvStatus);
+    return (
+      <View style={[styles.primaryButton, { backgroundColor: upToDate ? upToDateColor : statusColors.completed }]}>
+        <ThemedText style={{ color: '#fff' }}>{displayStatusLabel(status, mediaType, tvStatus)}</ThemedText>
+      </View>
+    );
+  }
+
+  if (status === 'to_watch') {
+    return (
+      <Pressable
+        style={[styles.primaryButton, { backgroundColor: statusColors.to_watch }]}
+        onPress={() => removeFromLibrary(titleId).then(onChanged)}>
+        <ThemedText style={{ color: '#fff' }}>{statusLabels.to_watch}</ThemedText>
+      </Pressable>
+    );
+  }
+
+  // status === 'watching'
+  const paused = manuallyPaused || isPaused(status, lastEpisodeWatchedAt);
+  const abandon = () => confirmAction('Abandonner ce titre ?', 'Abandonner', () => dropTitle(titleId).then(onChanged), true);
+
+  if (paused) {
+    return (
+      <Pressable
+        style={[styles.primaryButton, { backgroundColor: pausedColor }]}
+        onPress={() =>
+          confirmAction(
+            'Reprendre ce titre ?',
+            'Reprendre',
+            () => resumeManualPause(titleId).then(onChanged),
+            false,
+            pauseReasonMessage(manuallyPaused),
+          )
+        }
+        onLongPress={abandon}>
+        <ThemedText style={{ color: '#fff' }}>{pausedLabel}</ThemedText>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable
+      style={[styles.primaryButton, { backgroundColor: statusColors.watching }]}
+      onPress={() => confirmAction('Mettre en pause ?', 'Mettre en pause', () => pauseManually(titleId).then(onChanged))}
+      onLongPress={abandon}>
+      <ThemedText style={{ color: '#fff' }}>{statusLabels.watching}</ThemedText>
+    </Pressable>
+  );
+}
+
 function LibraryActions({
   titleId,
   mediaType,
   status,
-  isFavorite,
-  movieWatched,
+  manuallyPaused,
+  lastEpisodeWatchedAt,
+  movieWatchedAt,
+  movieRewatchCount,
   tvStatus,
   onChanged,
 }: {
   titleId: number;
   mediaType: MediaType;
   status: LibraryStatus | null;
-  isFavorite: boolean;
-  movieWatched: boolean;
+  manuallyPaused: boolean;
+  lastEpisodeWatchedAt: number | undefined;
+  movieWatchedAt: number | null;
+  movieRewatchCount: number;
   tvStatus?: string;
   onChanged: () => void;
 }) {
@@ -401,7 +573,7 @@ function LibraryActions({
   if (status === null) {
     return (
       <Pressable
-        style={[styles.primaryButton, { backgroundColor: theme.text }]}
+        style={[styles.primaryButton, { marginHorizontal: Spacing.three, backgroundColor: theme.text }]}
         onPress={() => addToLibrary(titleId).then(onChanged)}>
         <ThemedText style={{ color: theme.background }}>Ajouter à la bibliothèque</ThemedText>
       </Pressable>
@@ -410,41 +582,17 @@ function LibraryActions({
 
   return (
     <View style={styles.actionsColumn}>
-      <View style={styles.statusRow}>
-        {(Object.keys(statusLabels) as LibraryStatus[])
-          .filter((s) => mediaType !== 'movie' || s !== 'watching')
-          .map((s) => (
-          <Pressable
-            key={s}
-            onPress={() => setStatus(titleId, s).then(onChanged)}
-            style={[
-              styles.statusChip,
-              { backgroundColor: s === status ? statusColors[s] : theme.backgroundElement },
-            ]}>
-            <ThemedText type="small" style={{ color: s === status ? '#fff' : theme.text }}>
-              {displayStatusLabel(s, mediaType, tvStatus)}
-            </ThemedText>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.statusRow}>
-        <Pressable onPress={() => setFavorite(titleId, !isFavorite).then(onChanged)}>
-          <ThemedText themeColor={isFavorite ? 'text' : 'textSecondary'}>
-            {isFavorite ? '★ Favori' : '☆ Favori'}
-          </ThemedText>
-        </Pressable>
-        {mediaType === 'movie' && (
-          <Pressable
-            onPress={() => (movieWatched ? unmarkMovieWatched(titleId) : markMovieWatched(titleId)).then(onChanged)}>
-            <ThemedText themeColor={movieWatched ? 'text' : 'textSecondary'}>
-              {movieWatched ? '✓ Vu' : 'Marquer comme vu'}
-            </ThemedText>
-          </Pressable>
-        )}
-        <Pressable onPress={() => removeFromLibrary(titleId).then(onChanged)}>
-          <ThemedText themeColor="textSecondary">Retirer</ThemedText>
-        </Pressable>
-      </View>
+      <StatusButton
+        titleId={titleId}
+        mediaType={mediaType}
+        status={status}
+        tvStatus={tvStatus}
+        manuallyPaused={manuallyPaused}
+        lastEpisodeWatchedAt={lastEpisodeWatchedAt}
+        movieWatchedAt={movieWatchedAt}
+        movieRewatchCount={movieRewatchCount}
+        onChanged={onChanged}
+      />
     </View>
   );
 }
@@ -452,7 +600,16 @@ function LibraryActions({
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   safeArea: { flex: 1 },
-  backButton: { position: 'absolute', left: Spacing.three, zIndex: 10, padding: Spacing.two },
+  /** "Chip" flottant semi-opaque, pour rester lisible quel que soit le contenu de l'image derrière — pas une barre pleine largeur, juste autour de l'icône. */
+  floatingIconButton: {
+    position: 'absolute',
+    zIndex: 10,
+    padding: Spacing.two,
+    borderRadius: 999,
+    backgroundColor: 'rgba(17, 17, 17, 0.45)',
+  },
+  backButton: { left: Spacing.three },
+  favoriteButton: { right: Spacing.three },
   scroll: { paddingBottom: Spacing.six, gap: Spacing.three },
   backdrop: { width: '100%', height: 200 },
   headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three, marginTop: -Spacing.five },
@@ -502,13 +659,10 @@ const styles = StyleSheet.create({
   episodeNumber: { textTransform: 'uppercase', letterSpacing: 0.5 },
   episodeDetailButton: { padding: Spacing.one },
   primaryButton: {
-    marginHorizontal: Spacing.three,
     paddingVertical: Spacing.two + 2,
     borderRadius: Spacing.two,
     alignItems: 'center',
   },
   resolveBlock: { paddingHorizontal: Spacing.three, gap: Spacing.two },
   actionsColumn: { paddingHorizontal: Spacing.three, gap: Spacing.two },
-  statusRow: { flexDirection: 'row', gap: Spacing.two, alignItems: 'center' },
-  statusChip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.one + 2, borderRadius: Spacing.five },
 });

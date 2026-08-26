@@ -1,0 +1,1 @@
+ALTER TABLE `library_items` ADD `manually_paused` integer DEFAULT false NOT NULL;

@@ -57,14 +57,17 @@ export default function HomeScreen() {
     }, [queryClient]),
   );
 
+  const isItemPaused = (item: LibraryListItem) =>
+    item.manuallyPaused || isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId));
+
   const watching = (data ?? []).filter((item) => item.status === 'watching');
-  const active = watching.filter((item) => !isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId)));
-  const paused = watching.filter((item) => isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId)));
+  const active = watching.filter((item) => !isItemPaused(item));
+  const paused = watching.filter((item) => isItemPaused(item));
 
   const pickRandom = () => {
     const pool = (data ?? []).filter((item) => {
       if (item.status === 'to_watch') return true;
-      return item.status === 'watching' && isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId));
+      return item.status === 'watching' && isItemPaused(item);
     });
     if (pool.length === 0) {
       setRandomResult('empty');
