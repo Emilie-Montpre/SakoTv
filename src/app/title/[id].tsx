@@ -10,7 +10,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMovieDetails, getTvDetails, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-types';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 
 import {
   displayStatusLabel,
@@ -120,8 +119,21 @@ function seasonLabel(season: SeasonWithEpisodes) {
   return `Saison ${season.seasonNumber}`;
 }
 
-/** Icône qui pulse doucement en boucle (échelle + opacité) — indicateur de gel de l'écran, plus dans l'esprit de l'app qu'une roue de chargement générique. */
-function PulsingIcon({ name, size }: { name: ComponentProps<typeof Ionicons>['name']; size: number }) {
+/**
+ * Icône qui pulse doucement en boucle (échelle + opacité) — indicateur de gel de l'écran, plus dans
+ * l'esprit de l'app qu'une roue de chargement générique. `stretchY` étire verticalement le dessin de
+ * l'icône (ex. film-outline, naturellement large et court) pour rééquilibrer sa forme à l'œil — 1 = pas
+ * d'étirement.
+ */
+function PulsingIcon({
+  name,
+  size,
+  stretchY = 1,
+}: {
+  name: ComponentProps<typeof Ionicons>['name'];
+  size: number;
+  stretchY?: number;
+}) {
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -139,7 +151,7 @@ function PulsingIcon({ name, size }: { name: ComponentProps<typeof Ionicons>['na
   const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] });
 
   return (
-    <Animated.View style={{ opacity, transform: [{ scale }] }}>
+    <Animated.View style={{ opacity, transform: [{ scale }, { scaleY: stretchY }] }}>
       <Ionicons name={name} size={size} color="#fff" />
     </Animated.View>
   );
@@ -277,8 +289,9 @@ export default function TitleDetailScreen() {
               experimentalBlurMethod="dimezisBlurView"
               style={StyleSheet.absoluteFillObject}
             />
+            <View style={styles.freezeDarken} />
             <View style={styles.freezeContent}>
-              <PulsingIcon name="film-outline" size={30} />
+              <PulsingIcon name="film-outline" size={40} stretchY={1.3} />
               <ThemedText style={styles.freezeLabel}>{mutating ? 'Mise à jour…' : 'Un instant…'}</ThemedText>
             </View>
           </View>
@@ -700,8 +713,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  freezeContent: { alignItems: 'center', gap: Spacing.two },
-  freezeLabel: { color: '#fff' },
+  /** Assombrit le flou (indépendant du BlurView lui-même, sinon ça écrase le flou comme la première fois). */
+  freezeDarken: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.1)' },
+  freezeContent: { alignItems: 'center', gap: Spacing.three },
+  freezeLabel: { color: '#fff', fontSize: 16, },
   scroll: { paddingBottom: Spacing.six, gap: Spacing.three },
   backdrop: { width: '100%', height: 200 },
   headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three, marginTop: -Spacing.five },
