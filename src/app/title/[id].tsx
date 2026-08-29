@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentProps } from 'react';
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Animated, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -157,6 +157,17 @@ function PulsingIcon({
   );
 }
 
+/** Habillage commun du gel de la Fiche (chargement/enregistrement en cours ou erreur) — flou + voile sombre, contenu (icône/texte/bouton) fourni par l'appelant. */
+function FreezeOverlay({ children }: { children: ReactNode }) {
+  return (
+    <View style={styles.freezeOverlay} pointerEvents="auto">
+      <BlurView intensity={40} tint="dark" experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFillObject} />
+      <View style={styles.freezeDarken} />
+      <View style={styles.freezeContent}>{children}</View>
+    </View>
+  );
+}
+
 export default function TitleDetailScreen() {
   const { id, resolveFailureId } = useLocalSearchParams<{ id: string; resolveFailureId?: string }>();
   const theme = useTheme();
@@ -209,7 +220,11 @@ export default function TitleDetailScreen() {
   // serait trompeur (ex. "Ajouter à la bibliothèque" alors que le titre y est peut-être déjà) — geler
   // plutôt que de laisser interagir avec un état encore incomplet.
   const initialLoading = titleId == null || localStateQuery.isLoading;
-  const frozen = initialLoading || mutating;
+  // Sans ce garde-fou, un échec de titleIdQuery/localStateQuery (réseau, TMDB...) laissait le gel
+  // affiché pour toujours : isLoading redevient false sur une erreur, mais titleId ne se résout jamais,
+  // donc initialLoading restait bloqué à true sans le moindre message d'erreur visible à l'écran.
+  const syncError = titleIdQuery.error ?? localStateQuery.error;
+  const frozen = (initialLoading || mutating) && !syncError;
 
   const handleConfirmMatch = async (name: string) => {
     setConfirming(true);
@@ -282,19 +297,27 @@ export default function TitleDetailScreen() {
           </Pressable>
         )}
         {frozen && (
-          <View style={styles.freezeOverlay} pointerEvents="auto">
-            <BlurView
-              intensity={30}
-              tint="dark"
-              experimentalBlurMethod="dimezisBlurView"
-              style={StyleSheet.absoluteFillObject}
-            />
-            <View style={styles.freezeDarken} />
-            <View style={styles.freezeContent}>
-              <PulsingIcon name="film-outline" size={40} stretchY={1.3} />
-              <ThemedText style={styles.freezeLabel}>{mutating ? 'Mise à jour…' : 'Un instant…'}</ThemedText>
-            </View>
-          </View>
+          <FreezeOverlay>
+            <PulsingIcon name="film-outline" size={40} stretchY={1.3} />
+            <ThemedText style={styles.freezeLabel}>{mutating ? 'Mise à jour…' : 'Un instant…'}</ThemedText>
+          </FreezeOverlay>
+        )}
+        {!frozen && syncError && (
+          <FreezeOverlay>
+            <Ionicons name="alert-circle-outline" size={40} color="#fff" />
+            <ThemedText style={styles.freezeLabel}>Impossible de charger cette fiche</ThemedText>
+            <ThemedText type="small" style={styles.freezeLabel}>
+              {syncError instanceof Error ? syncError.message : 'Erreur inconnue.'}
+            </ThemedText>
+            <Pressable
+              style={[styles.primaryButton, { marginHorizontal: Spacing.three, backgroundColor: theme.text }]}
+              onPress={() => {
+                titleIdQuery.refetch();
+                localStateQuery.refetch();
+              }}>
+              <ThemedText style={{ color: theme.background }}>Réessayer</ThemedText>
+            </Pressable>
+          </FreezeOverlay>
         )}
         <ScrollView
           scrollEnabled={!frozen}
@@ -714,7 +737,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   /** Assombrit le flou (indépendant du BlurView lui-même, sinon ça écrase le flou comme la première fois). */
-  freezeDarken: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.1)' },
+  freezeDarken: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.3)' },
   freezeContent: { alignItems: 'center', gap: Spacing.three },
   freezeLabel: { color: '#fff', fontSize: 16, },
   scroll: { paddingBottom: Spacing.six, gap: Spacing.three },
