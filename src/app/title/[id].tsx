@@ -126,6 +126,7 @@ export default function TitleDetailScreen() {
   const queryClient = useQueryClient();
   const [activeSeason, setActiveSeason] = useState(0);
   const [confirming, setConfirming] = useState(false);
+  const [mutating, setMutating] = useState(false);
 
   const dashIndex = id.indexOf('-');
   const mediaType = id.slice(0, dashIndex) as MediaType;
@@ -150,9 +151,27 @@ export default function TitleDetailScreen() {
     enabled: titleId != null,
   });
 
-  const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['title-local-state', titleId] });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['title-local-state', titleId] });
+
+  /**
+   * Toute action qui écrit en base (cocher un épisode, bouton de statut...) passe par ici : gèle l'écran
+   * (voir l'overlay plus bas) le temps de l'enregistrement, pour éviter que deux actions déclenchées
+   * quasi en même temps ne se marchent dessus (l'une écrase silencieusement le résultat de l'autre).
+   * Un appui pendant qu'une action est déjà en cours est ignoré plutôt qu'empilé.
+   */
+  const runMutation = (action: () => Promise<unknown>) => {
+    if (mutating) return;
+    setMutating(true);
+    action()
+      .then(refresh)
+      .finally(() => setMutating(false));
   };
+
+  // Tant que les données locales (statut, épisodes vus) ne sont pas encore arrivées, l'écran affiché
+  // serait trompeur (ex. "Ajouter à la bibliothèque" alors que le titre y est peut-être déjà) — geler
+  // plutôt que de laisser interagir avec un état encore incomplet.
+  const initialLoading = titleId == null || localStateQuery.isLoading;
+  const frozen = initialLoading || mutating;
 
   const handleConfirmMatch = async (name: string) => {
     setConfirming(true);
@@ -207,22 +226,31 @@ export default function TitleDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <Pressable
+          disabled={mutating}
           onPress={() => router.back()}
-          style={[styles.floatingIconButton, styles.backButton, { top: insets.top + Spacing.two }]}
+          style={[styles.floatingIconButton, styles.backButton, { top: insets.top + Spacing.two, opacity: mutating ? 0.4 : 1 }]}
           hitSlop={12}
         >
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </Pressable>
         {!resolveFailureId && titleId != null && local?.status != null && (
           <Pressable
-            onPress={() => setFavorite(titleId, !local.isFavorite).then(refresh)}
-            style={[styles.floatingIconButton, styles.favoriteButton, { top: insets.top + Spacing.two }]}
+            disabled={mutating}
+            onPress={() => runMutation(() => setFavorite(titleId, !local.isFavorite))}
+            style={[styles.floatingIconButton, styles.favoriteButton, { top: insets.top + Spacing.two, opacity: mutating ? 0.4 : 1 }]}
             hitSlop={12}
           >
             <Ionicons name={local.isFavorite ? 'star' : 'star-outline'} size={20} color="#fff" />
           </Pressable>
         )}
+        {frozen && (
+          <View style={styles.freezeOverlay} pointerEvents="auto">
+            <ActivityIndicator size="large" color="#fff" />
+            <ThemedText style={styles.freezeLabel}>{mutating ? 'Enregistrement…' : 'Chargement…'}</ThemedText>
+          </View>
+        )}
         <ScrollView
+          scrollEnabled={!frozen}
           style={{ backgroundColor: theme.background }}
           contentContainerStyle={[styles.scroll, { paddingTop: insets.top }]}
         >
@@ -296,7 +324,8 @@ export default function TitleDetailScreen() {
             movieWatchedAt={local?.movieWatchedAt ?? null}
             movieRewatchCount={local?.movieRewatchCount ?? 0}
             tvStatus={tvStatus}
-            onChanged={refresh}
+            disabled={frozen}
+            runMutation={runMutation}
           />
         )}
 
@@ -340,6 +369,7 @@ export default function TitleDetailScreen() {
                 return (
                   <Pressable
                     key={season.id}
+                    disabled={frozen}
                     onPress={() => setActiveSeason(index)}
                     onLongPress={() => {
                       if (seasonFullyWatched) return;
@@ -350,7 +380,7 @@ export default function TitleDetailScreen() {
                           { text: 'Annuler', style: 'cancel' },
                           {
                             text: 'Marquer vue',
-                            onPress: () => markSeasonWatched(titleId!, season.episodes.map((ep) => ep.id)).then(refresh),
+                            onPress: () => runMutation(() => markSeasonWatched(titleId!, season.episodes.map((ep) => ep.id))),
                           },
                         ],
                       );
@@ -371,10 +401,11 @@ export default function TitleDetailScreen() {
               return (
                 <Pressable
                   key={episode.id}
+                  disabled={frozen}
                   style={[styles.episodeRow, { backgroundColor: theme.backgroundElement, opacity: watched ? 0.55 : 1 }]}
                   onPress={() => {
                     const action = watched ? unmarkEpisodeWatched : markEpisodeWatched;
-                    action(titleId!, episode.id).then(refresh);
+                    runMutation(() => action(titleId!, episode.id));
                   }}>
                   <View style={styles.episodeStillWrap}>
                     {still ? (
@@ -403,7 +434,7 @@ export default function TitleDetailScreen() {
                       </ThemedText>
                     )}
                   </View>
-                  <Pressable onPress={() => {}} hitSlop={8} style={styles.episodeDetailButton}>
+                  <Pressable disabled={frozen} onPress={() => {}} hitSlop={8} style={styles.episodeDetailButton}>
                     <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
                   </Pressable>
                 </Pressable>
@@ -438,7 +469,8 @@ function StatusButton({
   lastEpisodeWatchedAt,
   movieWatchedAt,
   movieRewatchCount,
-  onChanged,
+  disabled,
+  runMutation,
 }: {
   titleId: number;
   mediaType: MediaType;
@@ -448,14 +480,16 @@ function StatusButton({
   lastEpisodeWatchedAt: number | undefined;
   movieWatchedAt: number | null;
   movieRewatchCount: number;
-  onChanged: () => void;
+  disabled: boolean;
+  runMutation: (action: () => Promise<unknown>) => void;
 }) {
   if (mediaType === 'movie') {
     if (status === 'dropped') {
       return (
         <Pressable
+          disabled={disabled}
           style={[styles.primaryButton, { backgroundColor: statusColors.dropped }]}
-          onPress={() => confirmAction('Reprendre ce film ?', 'Reprendre', () => setStatus(titleId, 'to_watch').then(onChanged))}>
+          onPress={() => confirmAction('Reprendre ce film ?', 'Reprendre', () => runMutation(() => setStatus(titleId, 'to_watch')))}>
           <ThemedText style={{ color: '#fff' }}>{statusLabels.dropped}</ThemedText>
         </Pressable>
       );
@@ -465,9 +499,10 @@ function StatusButton({
       const watchCount = movieRewatchCount + 1;
       return (
         <Pressable
+          disabled={disabled}
           style={[styles.primaryButton, { backgroundColor: statusColors.completed }]}
           onLongPress={() =>
-            confirmAction('Marquer comme revu ?', 'Revu', () => markMovieWatched(titleId).then(onChanged))
+            confirmAction('Marquer comme revu ?', 'Revu', () => runMutation(() => markMovieWatched(titleId)))
           }>
           <ThemedText style={{ color: '#fff' }}>{watchCount > 1 ? `✓ Vu ×${watchCount}` : '✓ Vu'}</ThemedText>
         </Pressable>
@@ -476,9 +511,10 @@ function StatusButton({
 
     return (
       <Pressable
+        disabled={disabled}
         style={[styles.primaryButton, { backgroundColor: statusColors.to_watch }]}
-        onPress={() => removeFromLibrary(titleId).then(onChanged)}
-        onLongPress={() => confirmAction('Marquer comme vu ?', 'Vu', () => markMovieWatched(titleId).then(onChanged))}>
+        onPress={() => runMutation(() => removeFromLibrary(titleId))}
+        onLongPress={() => confirmAction('Marquer comme vu ?', 'Vu', () => runMutation(() => markMovieWatched(titleId)))}>
         <ThemedText style={{ color: '#fff' }}>{statusLabels.to_watch}</ThemedText>
       </Pressable>
     );
@@ -488,8 +524,9 @@ function StatusButton({
   if (status === 'dropped') {
     return (
       <Pressable
+        disabled={disabled}
         style={[styles.primaryButton, { backgroundColor: statusColors.dropped }]}
-        onPress={() => confirmAction('Reprendre ce titre ?', 'Reprendre', () => resumeFromDropped(titleId).then(onChanged))}>
+        onPress={() => confirmAction('Reprendre ce titre ?', 'Reprendre', () => runMutation(() => resumeFromDropped(titleId)))}>
         <ThemedText style={{ color: '#fff' }}>{statusLabels.dropped}</ThemedText>
       </Pressable>
     );
@@ -507,8 +544,9 @@ function StatusButton({
   if (status === 'to_watch') {
     return (
       <Pressable
+        disabled={disabled}
         style={[styles.primaryButton, { backgroundColor: statusColors.to_watch }]}
-        onPress={() => removeFromLibrary(titleId).then(onChanged)}>
+        onPress={() => runMutation(() => removeFromLibrary(titleId))}>
         <ThemedText style={{ color: '#fff' }}>{statusLabels.to_watch}</ThemedText>
       </Pressable>
     );
@@ -516,17 +554,18 @@ function StatusButton({
 
   // status === 'watching'
   const paused = manuallyPaused || isPaused(status, lastEpisodeWatchedAt);
-  const abandon = () => confirmAction('Abandonner ce titre ?', 'Abandonner', () => dropTitle(titleId).then(onChanged), true);
+  const abandon = () => confirmAction('Abandonner ce titre ?', 'Abandonner', () => runMutation(() => dropTitle(titleId)), true);
 
   if (paused) {
     return (
       <Pressable
+        disabled={disabled}
         style={[styles.primaryButton, { backgroundColor: pausedColor }]}
         onPress={() =>
           confirmAction(
             'Reprendre ce titre ?',
             'Reprendre',
-            () => resumeManualPause(titleId).then(onChanged),
+            () => runMutation(() => resumeManualPause(titleId)),
             false,
             pauseReasonMessage(manuallyPaused),
           )
@@ -539,8 +578,9 @@ function StatusButton({
 
   return (
     <Pressable
+      disabled={disabled}
       style={[styles.primaryButton, { backgroundColor: statusColors.watching }]}
-      onPress={() => confirmAction('Mettre en pause ?', 'Mettre en pause', () => pauseManually(titleId).then(onChanged))}
+      onPress={() => confirmAction('Mettre en pause ?', 'Mettre en pause', () => runMutation(() => pauseManually(titleId)))}
       onLongPress={abandon}>
       <ThemedText style={{ color: '#fff' }}>{statusLabels.watching}</ThemedText>
     </Pressable>
@@ -556,7 +596,8 @@ function LibraryActions({
   movieWatchedAt,
   movieRewatchCount,
   tvStatus,
-  onChanged,
+  disabled,
+  runMutation,
 }: {
   titleId: number;
   mediaType: MediaType;
@@ -566,15 +607,17 @@ function LibraryActions({
   movieWatchedAt: number | null;
   movieRewatchCount: number;
   tvStatus?: string;
-  onChanged: () => void;
+  disabled: boolean;
+  runMutation: (action: () => Promise<unknown>) => void;
 }) {
   const theme = useTheme();
 
   if (status === null) {
     return (
       <Pressable
+        disabled={disabled}
         style={[styles.primaryButton, { marginHorizontal: Spacing.three, backgroundColor: theme.text }]}
-        onPress={() => addToLibrary(titleId).then(onChanged)}>
+        onPress={() => runMutation(() => addToLibrary(titleId))}>
         <ThemedText style={{ color: theme.background }}>Ajouter à la bibliothèque</ThemedText>
       </Pressable>
     );
@@ -591,7 +634,8 @@ function LibraryActions({
         lastEpisodeWatchedAt={lastEpisodeWatchedAt}
         movieWatchedAt={movieWatchedAt}
         movieRewatchCount={movieRewatchCount}
-        onChanged={onChanged}
+        disabled={disabled}
+        runMutation={runMutation}
       />
     </View>
   );
@@ -610,6 +654,20 @@ const styles = StyleSheet.create({
   },
   backButton: { left: Spacing.three },
   favoriteButton: { right: Spacing.three },
+  /** Recouvre tout le contenu de la Fiche (mais pas le bouton retour/favori, au-dessus via zIndex) pendant le chargement initial ou l'enregistrement d'une action. */
+  freezeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  freezeLabel: { color: '#fff' },
   scroll: { paddingBottom: Spacing.six, gap: Spacing.three },
   backdrop: { width: '100%', height: 200 },
   headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three, marginTop: -Spacing.five },
