@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
+import { ActivityIndicator, Alert, Animated, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getMovieDetails, getTvDetails, tmdbImageUrl } from '@/api/tmdb';
@@ -117,6 +118,31 @@ function seasonLabel(season: SeasonWithEpisodes) {
   if (season.seasonNumber === 0) return name || 'Spécial';
   if (name && !isGenericSeasonName(name, season.seasonNumber)) return `${name} · Saison ${season.seasonNumber}`;
   return `Saison ${season.seasonNumber}`;
+}
+
+/** Icône qui pulse doucement en boucle (échelle + opacité) — indicateur de gel de l'écran, plus dans l'esprit de l'app qu'une roue de chargement générique. */
+function PulsingIcon({ name, size }: { name: ComponentProps<typeof Ionicons>['name']; size: number }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 450, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 450, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+
+  const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.9] });
+  const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] });
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ scale }] }}>
+      <Ionicons name={name} size={size} color="#fff" />
+    </Animated.View>
+  );
 }
 
 export default function TitleDetailScreen() {
@@ -245,8 +271,16 @@ export default function TitleDetailScreen() {
         )}
         {frozen && (
           <View style={styles.freezeOverlay} pointerEvents="auto">
-            <ActivityIndicator size="large" color="#fff" />
-            <ThemedText style={styles.freezeLabel}>{mutating ? 'Enregistrement…' : 'Chargement…'}</ThemedText>
+            <BlurView
+              intensity={30}
+              tint="dark"
+              experimentalBlurMethod="dimezisBlurView"
+              style={StyleSheet.absoluteFillObject}
+            />
+            <View style={styles.freezeContent}>
+              <PulsingIcon name="film-outline" size={30} />
+              <ThemedText style={styles.freezeLabel}>{mutating ? 'Mise à jour…' : 'Un instant…'}</ThemedText>
+            </View>
           </View>
         )}
         <ScrollView
@@ -664,9 +698,9 @@ const styles = StyleSheet.create({
     zIndex: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.two,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    overflow: 'hidden',
   },
+  freezeContent: { alignItems: 'center', gap: Spacing.two },
   freezeLabel: { color: '#fff' },
   scroll: { paddingBottom: Spacing.six, gap: Spacing.three },
   backdrop: { width: '100%', height: 200 },
