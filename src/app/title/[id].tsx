@@ -305,12 +305,12 @@ export default function TitleDetailScreen() {
         {!frozen && syncError && (
           <FreezeOverlay>
             <Ionicons name="alert-circle-outline" size={40} color="#fff" />
-            <ThemedText style={styles.freezeLabel}>Impossible de charger cette fiche</ThemedText>
+            <ThemedText style={styles.freezeLabel}>Une erreur est survenue</ThemedText>
             <ThemedText type="small" style={styles.freezeLabel}>
               {syncError instanceof Error ? syncError.message : 'Erreur inconnue.'}
             </ThemedText>
             <Pressable
-              style={[styles.primaryButton, { marginHorizontal: Spacing.three, backgroundColor: theme.text }]}
+              style={[styles.primaryButton, { marginHorizontal: Spacing.four, backgroundColor: theme.text }]}
               onPress={() => {
                 titleIdQuery.refetch();
                 localStateQuery.refetch();
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
   /** Assombrit le flou (indépendant du BlurView lui-même, sinon ça écrase le flou comme la première fois). */
   freezeDarken: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.3)' },
   freezeContent: { alignItems: 'center', gap: Spacing.three },
-  freezeLabel: { color: '#fff', fontSize: 16, },
+  freezeLabel: { color: '#fff', fontSize: 16, marginHorizontal: Spacing.three, textAlign: 'center' },
   scroll: { paddingBottom: Spacing.six, gap: Spacing.three },
   backdrop: { width: '100%', height: 200 },
   headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three, marginTop: -Spacing.five },
@@ -790,6 +790,7 @@ const styles = StyleSheet.create({
   episodeDetailButton: { padding: Spacing.one },
   primaryButton: {
     paddingVertical: Spacing.two + 2,
+    paddingHorizontal: Spacing.four,
     borderRadius: Spacing.two,
     alignItems: 'center',
   },
