@@ -1,10 +1,10 @@
-import { getAnimeDetails, searchAnime } from '../src/api/mal';
+import { getAnimeDetails, searchAnime } from '../src/api/myanimelist';
 import { getOmdbByImdbId, omdbRatings } from '../src/api/omdb';
 import { getShowByTmdbId } from '../src/api/streaming-availability';
 import { getSeriesExtended, searchSeries } from '../src/api/thetvdb';
 import { getWikidataEntity } from '../src/api/wikidata';
 import {
-  MAL_CLIENT_ID,
+  MYANIMELIST_CLIENT_ID,
   OMDB_API_KEY,
   STREAMING_AVAILABILITY_API_KEY,
   THETVDB_API_KEY,
@@ -14,8 +14,8 @@ type Check = { name: string; requiredKey: string | null; run: () => Promise<stri
 
 const checks: Check[] = [
   {
-    name: 'mal',
-    requiredKey: MAL_CLIENT_ID,
+    name: 'myanimelist',
+    requiredKey: MYANIMELIST_CLIENT_ID,
     run: async () => {
       const search = await searchAnime('Cowboy Bebop', 3);
       const details = await getAnimeDetails(1);

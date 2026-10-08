@@ -1,6 +1,6 @@
 export const TMDB_API_KEY = process.env.EXPO_PUBLIC_TMDB_API_KEY ?? '';
-export const MAL_CLIENT_ID = process.env.EXPO_PUBLIC_MAL_CLIENT_ID ?? '';
-export const MAL_CLIENT_SECRET = process.env.EXPO_PUBLIC_MAL_CLIENT_SECRET ?? '';
+export const MYANIMELIST_CLIENT_ID = process.env.EXPO_PUBLIC_MYANIMELIST_CLIENT_ID ?? '';
+export const MYANIMELIST_CLIENT_SECRET = process.env.EXPO_PUBLIC_MYANIMELIST_CLIENT_SECRET ?? '';
 export const THETVDB_API_KEY = process.env.EXPO_PUBLIC_THETVDB_API_KEY ?? '';
 export const THETVDB_PIN = process.env.EXPO_PUBLIC_THETVDB_PIN ?? '';
 export const OMDB_API_KEY = process.env.EXPO_PUBLIC_OMDB_API_KEY ?? '';
