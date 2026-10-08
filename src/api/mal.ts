@@ -21,8 +21,6 @@ export type MalAnimeDetails = MalAnimeSummary & {
   genres?: { id: number; name: string }[];
 };
 
-// Lectures publiques : le Client ID seul dans le header suffit (a confirmer par le script de test),
-// pas de flux OAuth utilisateur.
 async function malFetch<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(`${BASE_URL}${path}`);
   for (const [key, value] of Object.entries(params)) {

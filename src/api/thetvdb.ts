@@ -46,7 +46,6 @@ async function tvdbFetch<T>(path: string, params: Record<string, string> = {}, r
   }
 
   const response = await fetch(url.toString(), { headers: { Authorization: `Bearer ${cachedToken}` } });
-  // Le jeton expire (environ un mois) : un seul nouvel essai apres reconnexion.
   if (response.status === 401 && !retried) {
     cachedToken = null;
     return tvdbFetch<T>(path, params, true);
@@ -61,7 +60,6 @@ export function searchSeries(query: string) {
   return tvdbFetch<TvdbSearchResult[]>('/search', { query, type: 'series' });
 }
 
-// L'identifiant TV Time d'une serie (`series_id` de l'export) est l'identifiant TheTVDB brut.
 export function getSeriesExtended(tvdbId: number) {
   return tvdbFetch<TvdbSeriesExtended>(`/series/${tvdbId}/extended`, { short: 'true' });
 }

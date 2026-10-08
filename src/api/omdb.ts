@@ -12,7 +12,6 @@ export type OmdbResponse = {
   Ratings?: { Source: string; Value: string }[];
 };
 
-// OMDb renvoie HTTP 200 meme en cas d'erreur (cle invalide, titre inconnu) : l'erreur est dans le corps.
 export async function getOmdbByImdbId(imdbId: string): Promise<OmdbResponse> {
   const url = new URL(BASE_URL);
   url.searchParams.set('apikey', OMDB_API_KEY);
@@ -29,7 +28,6 @@ export async function getOmdbByImdbId(imdbId: string): Promise<OmdbResponse> {
   return json;
 }
 
-// Les notes absentes valent "N/A" : on renvoie null plutot que de les afficher telles quelles.
 export function omdbRatings(data: OmdbResponse) {
   const clean = (value: string | undefined) => (value && value !== 'N/A' ? value : null);
   const rotten = data.Ratings?.find((rating) => rating.Source === 'Rotten Tomatoes')?.Value;

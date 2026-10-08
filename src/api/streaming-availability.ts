@@ -15,8 +15,6 @@ export type StreamingShow = {
   streamingOptions: Record<string, StreamingOption[]>;
 };
 
-// Appel live a l'ouverture de la Fiche (pas de stockage fige a l'import) : voir TODO.md, section "Langues".
-// Format de l'identifiant et des champs a confirmer avec une vraie cle (schema v4 suppose).
 export async function getShowByTmdbId(kind: 'movie' | 'tv', tmdbId: number, country = 'fr'): Promise<StreamingShow> {
   const url = new URL(`https://${HOST}/shows/${kind}/${tmdbId}`);
   url.searchParams.set('country', country);

@@ -1,6 +1,3 @@
-// Appels de test reels, un par source de donnees. Usage :
-//   npx tsx --env-file=.env scripts/test-apis.ts            (toutes les sources)
-//   npx tsx --env-file=.env scripts/test-apis.ts omdb mal   (sources choisies)
 import { getAnimeDetails, searchAnime } from '../src/api/mal';
 import { getOmdbByImdbId, omdbRatings } from '../src/api/omdb';
 import { getShowByTmdbId } from '../src/api/streaming-availability';
