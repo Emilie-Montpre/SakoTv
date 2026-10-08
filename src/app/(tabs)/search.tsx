@@ -48,7 +48,7 @@ export default function SearchScreen() {
 
   const handlePress = (item: TmdbSearchResult & { media_type: 'movie' | 'tv' }) => {
     if (resolveFailureId) {
-      router.push({ pathname: `/title/${item.media_type}-${item.id}`, params: { resolveFailureId } });
+      router.push({ pathname: '/title/[id]', params: { id: `${item.media_type}-${item.id}`, resolveFailureId } });
     } else {
       router.push(`/title/${item.media_type}-${item.id}`);
     }

@@ -437,6 +437,9 @@ export default function TitleDetailScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seasonRow}>
               {local.seasons.map((season, index) => {
                 const seasonFullyWatched = season.episodes.length > 0 && season.episodes.every((ep) => ep.watchedAt != null);
+                const seasonRewatchCount = seasonFullyWatched
+                  ? Math.min(...season.episodes.map((ep) => ep.rewatchCount))
+                  : 0;
                 const isActive = index === activeSeason;
                 const backgroundColor = isActive ? theme.text : seasonFullyWatched ? statusColors.completed : theme.backgroundElement;
                 const textColor = isActive ? theme.background : seasonFullyWatched ? '#fff' : theme.text;
@@ -446,7 +449,21 @@ export default function TitleDetailScreen() {
                     disabled={frozen}
                     onPress={() => setActiveSeason(index)}
                     onLongPress={() => {
-                      if (seasonFullyWatched) return;
+                      const episodeIds = season.episodes.map((ep) => ep.id);
+                      if (seasonFullyWatched) {
+                        Alert.alert(
+                          'Marquer la saison comme revue ?',
+                          `Marquer tous les épisodes de ${seasonLabel(season)} comme revus ?`,
+                          [
+                            { text: 'Annuler', style: 'cancel' },
+                            {
+                              text: 'Marquer revue',
+                              onPress: () => runMutation(() => markSeasonWatched(titleId!, episodeIds)),
+                            },
+                          ],
+                        );
+                        return;
+                      }
                       Alert.alert(
                         'Marquer la saison comme vue ?',
                         `Marquer tous les épisodes de ${seasonLabel(season)} comme vus ?`,
@@ -454,14 +471,14 @@ export default function TitleDetailScreen() {
                           { text: 'Annuler', style: 'cancel' },
                           {
                             text: 'Marquer vue',
-                            onPress: () => runMutation(() => markSeasonWatched(titleId!, season.episodes.map((ep) => ep.id))),
+                            onPress: () => runMutation(() => markSeasonWatched(titleId!, episodeIds)),
                           },
                         ],
                       );
                     }}
                     style={[styles.seasonChip, { backgroundColor }]}>
                     <ThemedText type="small" style={{ color: textColor }}>
-                      {seasonFullyWatched ? '✓ ' : ''}
+                      {seasonFullyWatched ? (seasonRewatchCount > 0 ? `✓×${seasonRewatchCount + 1} ` : '✓ ') : ''}
                       {seasonLabel(season)}
                     </ThemedText>
                   </Pressable>
@@ -478,8 +495,25 @@ export default function TitleDetailScreen() {
                   disabled={frozen}
                   style={[styles.episodeRow, { backgroundColor: theme.backgroundElement, opacity: watched ? 0.55 : 1 }]}
                   onPress={() => {
-                    const action = watched ? unmarkEpisodeWatched : markEpisodeWatched;
-                    runMutation(() => action(titleId!, episode.id));
+                    if (!watched) {
+                      runMutation(() => markEpisodeWatched(titleId!, episode.id));
+                      return;
+                    }
+                    Alert.alert('Vous ne l\'avez finalement pas regardé ?', undefined, [
+                      { text: 'Annuler', style: 'cancel' },
+                      {
+                        text: 'Oups, pas vu !',
+                        style: 'destructive',
+                        onPress: () => runMutation(() => unmarkEpisodeWatched(titleId!, episode.id)),
+                      },
+                    ]);
+                  }}
+                  onLongPress={() => {
+                    if (!watched) return;
+                    Alert.alert('Marquer comme revu ?', undefined, [
+                      { text: 'Annuler', style: 'cancel' },
+                      { text: 'Revu', onPress: () => runMutation(() => markEpisodeWatched(titleId!, episode.id)) },
+                    ]);
                   }}>
                   <View style={styles.episodeStillWrap}>
                     {still ? (
@@ -493,7 +527,13 @@ export default function TitleDetailScreen() {
                           styles.watchedBadge,
                           { backgroundColor: statusColors.completed, borderColor: theme.backgroundElement },
                         ]}>
-                        <Ionicons name="checkmark" size={16} color="#fff" />
+                        {episode.rewatchCount > 0 ? (
+                          <ThemedText type="small" style={styles.watchedBadgeCount}>
+                            {episode.rewatchCount + 1}
+                          </ThemedText>
+                        ) : (
+                          <Ionicons name="checkmark" size={16} color="#fff" />
+                        )}
                       </View>
                     )}
                   </View>
@@ -789,6 +829,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  watchedBadgeCount: { color: '#fff', fontWeight: 'bold' },
   rowText: { flex: 1, gap: Spacing.one },
   episodeNumber: { textTransform: 'uppercase', letterSpacing: 0.5 },
   episodeDetailButton: { padding: Spacing.one },
