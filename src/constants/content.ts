@@ -29,6 +29,15 @@ export function isPaused(status: LibraryStatus, lastEpisodeWatchedAt: number | u
   return status === 'watching' && lastEpisodeWatchedAt != null && now - lastEpisodeWatchedAt > PAUSED_AFTER_MS;
 }
 
+export function isEffectivelyPaused(
+  status: LibraryStatus,
+  manuallyPaused: boolean,
+  lastEpisodeWatchedAt: number | undefined,
+  now: number = Date.now(),
+) {
+  return manuallyPaused || isPaused(status, lastEpisodeWatchedAt, now);
+}
+
 const ENDED_TV_STATUSES = ['Ended', 'Canceled'];
 
 export const upToDateLabel = 'À jour';

@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { tmdbImageUrl } from '@/api/tmdb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { isPaused } from '@/constants/content';
+import { isEffectivelyPaused } from '@/constants/content';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getLastEpisodeWatchedAtByTitle, listLibraryItems, type LibraryListItem } from '@/repository/library';
@@ -58,7 +58,7 @@ export default function HomeScreen() {
   );
 
   const isItemPaused = (item: LibraryListItem) =>
-    item.manuallyPaused || isPaused(item.status, lastWatchedAtByTitle?.get(item.titleId));
+    isEffectivelyPaused(item.status, item.manuallyPaused, lastWatchedAtByTitle?.get(item.titleId));
 
   const watching = (data ?? []).filter((item) => item.status === 'watching');
   const active = watching.filter((item) => !isItemPaused(item));

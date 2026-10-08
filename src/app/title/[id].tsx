@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Animated, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,7 +13,7 @@ import { ThemedText } from '@/components/themed-text';
 
 import {
   displayStatusLabel,
-  isPaused,
+  isEffectivelyPaused,
   isUpToDate,
   pauseReasonMessage,
   pausedColor,
@@ -203,6 +203,11 @@ export default function TitleDetailScreen() {
     queryFn: () => loadTitleLocalState(titleId!),
     enabled: titleId != null,
   });
+
+  const lastEpisodeWatchedAt = useMemo(
+    () => (localStateQuery.data ? computeLastEpisodeWatchedAt(localStateQuery.data.seasons) : undefined),
+    [localStateQuery.data],
+  );
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['title-local-state', titleId] });
 
@@ -394,7 +399,7 @@ export default function TitleDetailScreen() {
             mediaType={mediaType}
             status={local?.status ?? null}
             manuallyPaused={local?.manuallyPaused ?? false}
-            lastEpisodeWatchedAt={local ? computeLastEpisodeWatchedAt(local.seasons) : undefined}
+            lastEpisodeWatchedAt={lastEpisodeWatchedAt}
             movieWatchedAt={local?.movieWatchedAt ?? null}
             movieRewatchCount={local?.movieRewatchCount ?? 0}
             tvStatus={tvStatus}
@@ -667,7 +672,7 @@ function StatusButton({
   }
 
   // status === 'watching'
-  const paused = manuallyPaused || isPaused(status, lastEpisodeWatchedAt);
+  const paused = isEffectivelyPaused(status, manuallyPaused, lastEpisodeWatchedAt);
   const abandon = () => confirmAction('Abandonner ce titre ?', 'Abandonner', () => runMutation(() => dropTitle(titleId)), true);
 
   if (paused) {
