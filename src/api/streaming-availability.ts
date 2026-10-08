@@ -1,6 +1,6 @@
 import { STREAMING_AVAILABILITY_API_KEY } from '../constants/env';
 
-const HOST = 'streaming-availability.p.rapidapi.com';
+const BASE_URL = 'https://api.movieofthenight.com/v4';
 
 export type StreamingOption = {
   service: { id: string; name: string };
@@ -16,11 +16,11 @@ export type StreamingShow = {
 };
 
 export async function getShowByTmdbId(kind: 'movie' | 'tv', tmdbId: number, country = 'fr'): Promise<StreamingShow> {
-  const url = new URL(`https://${HOST}/shows/${kind}/${tmdbId}`);
+  const url = new URL(`${BASE_URL}/shows/${kind}/${tmdbId}`);
   url.searchParams.set('country', country);
 
   const response = await fetch(url.toString(), {
-    headers: { 'X-RapidAPI-Key': STREAMING_AVAILABILITY_API_KEY, 'X-RapidAPI-Host': HOST },
+    headers: { 'X-API-Key': STREAMING_AVAILABILITY_API_KEY },
   });
   if (!response.ok) {
     throw new Error(`Erreur Streaming Availability (${response.status}) sur ${kind}/${tmdbId}`);

@@ -1,4 +1,4 @@
-import { THETVDB_API_KEY, THETVDB_PIN } from '../constants/env';
+import { THETVDB_API_KEY } from '../constants/env';
 
 const BASE_URL = 'https://api4.thetvdb.com/v4';
 
@@ -22,8 +22,7 @@ export type TvdbSeriesExtended = {
 let cachedToken: string | null = null;
 
 async function login(): Promise<string> {
-  const body: Record<string, string> = { apikey: THETVDB_API_KEY };
-  if (THETVDB_PIN) body.pin = THETVDB_PIN;
+  const body = { apikey: THETVDB_API_KEY };
 
   const response = await fetch(`${BASE_URL}/login`, {
     method: 'POST',
