@@ -187,9 +187,13 @@ export default function TitleDetailScreen() {
       mediaType === 'movie' ? getMovieDetails(tmdbId) : getTvDetails(tmdbId),
   });
 
+  // Réutilise les détails déjà récupérés par detailsQuery ci-dessus au lieu de les refaire chercher —
+  // upsertTitleFromTmdb ne les récupère elle-même que si on ne les lui passe pas (cas de l'import, qui
+  // ne les a pas encore). D'où l'attente de detailsQuery avant de lancer celle-ci.
   const titleIdQuery = useQuery({
     queryKey: ['local-title-id', mediaType, tmdbId],
-    queryFn: () => upsertTitleFromTmdb(tmdbId, mediaType),
+    queryFn: () => upsertTitleFromTmdb(tmdbId, mediaType, detailsQuery.data),
+    enabled: detailsQuery.data != null,
   });
 
   const titleId = titleIdQuery.data;

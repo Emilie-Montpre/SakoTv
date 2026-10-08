@@ -1,6 +1,7 @@
 import { and, eq, gt, sql } from 'drizzle-orm';
 
 import { getMovieDetails, getSeasonDetails, getTvDetails, isAnimeMovie, isAnimeTv } from '@/api/tmdb';
+import type { TmdbMovieDetails, TmdbTvDetails } from '@/api/tmdb-types';
 import { db } from '@/db/client';
 import {
   episodes,
@@ -12,13 +13,22 @@ import {
   type MediaType,
 } from '@/db/schema';
 
-export async function upsertTitleFromTmdb(tmdbId: number, mediaType: MediaType) {
+/**
+ * `prefetchedDetails` évite un second appel TMDB identique quand l'appelant a déjà les détails sous la
+ * main (ex. la Fiche, qui les a déjà récupérés pour l'affichage) — sans lui, la fonction les récupère
+ * elle-même comme avant (ex. l'import, qui ne les a pas encore).
+ */
+export async function upsertTitleFromTmdb(
+  tmdbId: number,
+  mediaType: MediaType,
+  prefetchedDetails?: TmdbMovieDetails | TmdbTvDetails,
+) {
   const existing = await db.query.titles.findFirst({
     where: and(eq(titles.tmdbId, tmdbId), eq(titles.mediaType, mediaType)),
   });
 
   if (mediaType === 'movie') {
-    const movie = await getMovieDetails(tmdbId);
+    const movie = (prefetchedDetails as TmdbMovieDetails) ?? (await getMovieDetails(tmdbId));
     const values = {
       tmdbId,
       mediaType: 'movie' as const,
@@ -43,7 +53,7 @@ export async function upsertTitleFromTmdb(tmdbId: number, mediaType: MediaType) 
     return inserted.id;
   }
 
-  const tv = await getTvDetails(tmdbId);
+  const tv = (prefetchedDetails as TmdbTvDetails) ?? (await getTvDetails(tmdbId));
   const values = {
     tmdbId,
     mediaType: 'tv' as const,
