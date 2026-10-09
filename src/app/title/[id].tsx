@@ -515,7 +515,11 @@ export default function TitleDetailScreen() {
                 </Pressable>
               )}
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.castRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.bleed}
+              contentContainerStyle={styles.castRow}>
               {cast.map((member) => {
                 const profile = tmdbImageUrl(member.profile_path, 'w185');
                 return (
@@ -551,7 +555,11 @@ export default function TitleDetailScreen() {
         {mediaType === 'tv' && local && local.seasons.length > 0 && !(preRelease && local.seasons.every((season) => season.episodes.every((episode) => !episode.airDate))) && (
           <View style={styles.section}>
             <ThemedText type="smallBold">Épisodes</ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seasonRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.bleed}
+              contentContainerStyle={styles.seasonRow}>
               {local.seasons.map((season, index) => {
                 const seasonFullyWatched = season.episodes.length > 0 && season.episodes.every((ep) => ep.watchedAt != null);
                 const seasonRewatchCount = seasonFullyWatched
@@ -1000,7 +1008,8 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.five,
   },
   section: { gap: Spacing.two, paddingHorizontal: Spacing.three },
-  castRow: { gap: Spacing.three, paddingVertical: Spacing.one },
+  bleed: { marginHorizontal: -Spacing.three },
+  castRow: { gap: Spacing.three, paddingVertical: Spacing.one, paddingHorizontal: Spacing.three },
   castItem: { width: 80, gap: Spacing.half },
   castHeading: { flex: 1 },
   castHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1008,7 +1017,7 @@ const styles = StyleSheet.create({
   castMore: { alignItems: 'center', justifyContent: 'center' },
   castPhoto: { width: 80, height: 80, borderRadius: 40 },
   castName: { textAlign: 'center' },
-  seasonRow: { gap: Spacing.two, paddingVertical: Spacing.one },
+  seasonRow: { gap: Spacing.two, paddingVertical: Spacing.one, paddingHorizontal: Spacing.three },
   seasonChip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Spacing.five },
   episodeRow: {
     flexDirection: 'row',

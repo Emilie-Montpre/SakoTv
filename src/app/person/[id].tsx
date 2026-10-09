@@ -300,7 +300,11 @@ export default function PersonScreen() {
           {knownFor.length > 0 && (
             <View style={styles.section}>
               <ThemedText type="smallBold">Connu pour</ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+              <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.bleed}
+              contentContainerStyle={styles.row}>
                 {knownFor.map((entry) => {
                   const poster = tmdbImageUrl(entry.posterPath, 'w185');
                   return (
@@ -345,7 +349,11 @@ export default function PersonScreen() {
           {photos.length > 1 && (
             <View style={styles.section}>
               <ThemedText type="smallBold">Photos ({photos.length})</ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+              <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.bleed}
+              contentContainerStyle={styles.row}>
                 {photos.map((photo, index) => (
                   <Pressable key={photo.file_path} onPress={() => setViewer({ photos: photos.map((item) => item.file_path), index })}>
                     <Image
@@ -362,7 +370,11 @@ export default function PersonScreen() {
           {taggedPhotos.length > 0 && (
             <View style={styles.section}>
               <ThemedText type="smallBold">Images de films et de séries ({taggedPhotos.length})</ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+              <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.bleed}
+              contentContainerStyle={styles.row}>
                 {taggedPhotos.map((photo, index) => (
                   <Pressable
                     key={photo.file_path}
@@ -439,7 +451,8 @@ const styles = StyleSheet.create({
   biographyBlock: { gap: Spacing.one },
   biographyNote: { paddingHorizontal: Spacing.three },
   section: { gap: Spacing.two, paddingHorizontal: Spacing.three },
-  row: { gap: Spacing.two, paddingVertical: Spacing.one },
+  bleed: { marginHorizontal: -Spacing.three },
+  row: { gap: Spacing.two, paddingVertical: Spacing.one, paddingHorizontal: Spacing.three },
   knownForItem: { width: 100, gap: Spacing.one },
   knownForPoster: { width: 100, height: 150, borderRadius: Spacing.two },
   centered: { textAlign: 'center' },

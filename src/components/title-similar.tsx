@@ -22,7 +22,11 @@ export function TitleSimilar({ mediaType, tmdbId }: { mediaType: 'movie' | 'tv';
   return (
     <View style={styles.section}>
       <ThemedText type="smallBold">Titres similaires</ThemedText>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+      <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.bleed}
+              contentContainerStyle={styles.row}>
         {items.map((item) => {
           const poster = tmdbImageUrl(item.poster_path, 'w185');
           return (
@@ -48,7 +52,8 @@ export function TitleSimilar({ mediaType, tmdbId }: { mediaType: 'movie' | 'tv';
 
 const styles = StyleSheet.create({
   section: { gap: Spacing.two, paddingHorizontal: Spacing.three },
-  row: { gap: Spacing.two, paddingVertical: Spacing.one },
+  bleed: { marginHorizontal: -Spacing.three },
+  row: { gap: Spacing.two, paddingVertical: Spacing.one, paddingHorizontal: Spacing.three },
   item: { width: 100, gap: Spacing.one },
   poster: { width: 100, height: 150, borderRadius: Spacing.two },
   name: { textAlign: 'center' },
