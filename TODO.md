@@ -314,7 +314,9 @@ Quand on tape sur un chip de saison pas encore entièrement vue (changement de s
 
 **Demandé le 2026-10-09 comme un bonus**, parce que l'app accumule des gestes à découvrir : tap pour cocher, tap sur la bande de droite pour le détail, appui long pour marquer comme revu, appui long sur un épisode non vu pour rattraper les précédents, appui long sur un chip de saison, appui long sur le bouton de statut (abandonner/revu), appui long sur une vignette de l'Accueil pour valider le prochain épisode.
 
-- [ ] Pas encore conçu. Pistes à proposer le moment venu : une page "Aide et gestes" accessible depuis Stats, des bulles d'aide affichées une seule fois à la première rencontre d'un écran (premier appui sur un épisode, première ouverture d'une Fiche), ou un petit bouton "?" par écran. À montrer en maquette avant de choisir.
+- [ ] **Décision du 2026-10-09 : une page "Gestes", accessible depuis Stats, et rien d'autre pour l'instant.** Pas de bulles d'aide à usage unique ni de tutoriel plein écran au premier lancement : l'app n'a qu'une seule utilisatrice, une page de rappel à consulter quand elle a oublié suffit. Évite aussi de créer une table de réglages juste pour retenir quelles bulles ont été vues.
+- [ ] **Pas seulement du texte** : pour chaque geste, un visuel explicite (capture ou schéma de l'écran avec des flèches et une légende indiquant où appuyer et comment), regroupés par écran (Fiche, Accueil, Bibliothèque). Les gestes à couvrir sont ceux listés ci-dessus.
+- [ ] **Priorité : bonus**, à faire quand il y aura du temps ou un vrai besoin. À montrer en maquette avant de construire. Les bulles d'aide à la première rencontre restent une piste possible plus tard, pas retenue maintenant.
 
 ## Backlog — Personnes favorites (Catégorie 6, Stats)
 
