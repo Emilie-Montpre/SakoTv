@@ -1,3 +1,5 @@
+import { getAnimeAiringByMalId } from '../src/api/anilist';
+import { getAnimeCharactersJikan, getAnimeJikan, getPersonJikan } from '../src/api/jikan';
 import { getAnimeDetails, searchAnime } from '../src/api/myanimelist';
 import { getOmdbByImdbId, omdbRatings } from '../src/api/omdb';
 import { getShowByTmdbId } from '../src/api/streaming-availability';
@@ -46,6 +48,26 @@ const checks: Check[] = [
       const show = await getShowByTmdbId('movie', 603, 'fr');
       const services = (show.streamingOptions?.fr ?? []).map((option) => option.service.name);
       return `"${show.title}" en France: ${[...new Set(services)].join(', ') || 'aucune offre'}`;
+    },
+  },
+  {
+    name: 'jikan',
+    requiredKey: null,
+    run: async () => {
+      const anime = await getAnimeJikan(1);
+      const characters = await getAnimeCharactersJikan(1);
+      const voice = characters.find((entry) => entry.voice_actors.length > 0)?.voice_actors[0];
+      const person = voice ? await getPersonJikan(voice.person.mal_id) : null;
+      return `fiche #1: "${anime.title}", ${characters.length} personnage(s), doubleur: ${person?.name ?? 'aucun'}`;
+    },
+  },
+  {
+    name: 'anilist',
+    requiredKey: null,
+    run: async () => {
+      const media = await getAnimeAiringByMalId(1);
+      const next = media.nextAiringEpisode;
+      return `MAL #1 -> AniList #${media.id} "${media.title.romaji}" (${media.status}), prochain episode: ${next ? new Date(next.airingAt * 1000).toISOString() : 'aucun'}`;
     },
   },
   {
