@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   ageFrom,
+  buildAboutRows,
   buildFilmography,
   buildKnownFor,
   creditsForShow,
@@ -19,7 +20,9 @@ import {
 import { getCreditDetails, getPersonBiographyEnglish, getPersonDetails, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbPersonCredit, TmdbPersonDetails } from '@/api/tmdb-types';
 import { getPersonWikidataProfile } from '@/api/wikidata';
+import { getWikipediaIntro } from '@/api/wikipedia';
 import { CreditSheet } from '@/components/credit-sheet';
+import { AboutBlock, AwardsBlock, FamilyBlock } from '@/components/person-about';
 import { PhotoViewer } from '@/components/photo-viewer';
 import { Synopsis } from '@/components/synopsis';
 import { ThemedText } from '@/components/themed-text';
@@ -152,7 +155,7 @@ export default function PersonScreen() {
   const personId = Number(id);
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const [viewedPhotoIndex, setViewedPhotoIndex] = useState<number | null>(null);
+  const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
   const [sheetEntry, setSheetEntry] = useState<FilmographyEntry | null>(null);
 
   const personQuery = useQuery({
@@ -160,20 +163,32 @@ export default function PersonScreen() {
     queryFn: () => getPersonDetails(personId),
   });
 
-  const frenchBiography = personQuery.data?.biography?.trim() ?? '';
-  const englishBiographyQuery = useQuery({
-    queryKey: ['tmdb-person-biography-en', personId],
-    queryFn: () => getPersonBiographyEnglish(personId),
-    enabled: personQuery.data != null && frenchBiography === '',
-  });
-  const englishBiography = englishBiographyQuery.data?.biography?.trim() ?? '';
-
   const wikidataId = personQuery.data?.external_ids?.wikidata_id;
   const wikidataQuery = useQuery({
     queryKey: ['wikidata-person', wikidataId],
     queryFn: () => getPersonWikidataProfile(wikidataId!),
     enabled: !!wikidataId,
   });
+
+  const wikipediaTitle = wikidataQuery.data?.wikipediaTitles.fr ?? null;
+  const wikipediaQuery = useQuery({
+    queryKey: ['wikipedia-fr', wikipediaTitle],
+    queryFn: () => getWikipediaIntro('fr', wikipediaTitle!),
+    enabled: !!wikipediaTitle,
+  });
+
+  const tmdbFrenchBiography = personQuery.data?.biography?.trim() ?? '';
+  const wikipediaIntro = wikipediaQuery.data ?? null;
+  const wikipediaSettled = !wikipediaTitle || wikipediaQuery.isFetched;
+  const useWikipedia = !!wikipediaIntro && wikipediaIntro.text.length > tmdbFrenchBiography.length;
+  const frenchBiography = useWikipedia ? wikipediaIntro!.text : tmdbFrenchBiography;
+
+  const englishBiographyQuery = useQuery({
+    queryKey: ['tmdb-person-biography-en', personId],
+    queryFn: () => getPersonBiographyEnglish(personId),
+    enabled: personQuery.data != null && frenchBiography === '' && wikipediaSettled,
+  });
+  const englishBiography = englishBiographyQuery.data?.biography?.trim() ?? '';
 
   const backButton = (
     <Pressable
@@ -225,6 +240,7 @@ export default function PersonScreen() {
   const socialLinks = buildSocialLinks(person.external_ids);
   const filmography = buildFilmography(person);
   const photos = person.images?.profiles ?? [];
+  const taggedPhotos = (person.tagged_images?.results ?? []).filter((image) => image.aspect_ratio > 1).slice(0, 20);
   const wikidata = wikidataQuery.data;
 
   const birthLine = person.birthday
@@ -233,7 +249,7 @@ export default function PersonScreen() {
       }`
     : null;
   const heightLine = wikidata?.heightMeters ? `${wikidata.heightMeters.toFixed(2).replace('.', ',')} m` : null;
-  const hasWikidataDetails = !!wikidata && (wikidata.family.length > 0 || wikidata.awards.length > 0);
+  const aboutRows = buildAboutRows(person, wikidata, wikipediaIntro?.url ?? null);
 
   return (
     <>
@@ -305,7 +321,16 @@ export default function PersonScreen() {
           )}
 
           {frenchBiography ? (
-            <Synopsis text={frenchBiography} />
+            <View style={styles.biographyBlock}>
+              <Synopsis text={frenchBiography} />
+              {useWikipedia && wikipediaIntro && (
+                <Pressable onPress={() => Linking.openURL(wikipediaIntro.url)} style={styles.biographyNote}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Source : Wikipédia (licence CC BY-SA)
+                  </ThemedText>
+                </Pressable>
+              )}
+            </View>
           ) : englishBiography ? (
             <View style={styles.biographyBlock}>
               <Synopsis text={englishBiography} />
@@ -315,12 +340,14 @@ export default function PersonScreen() {
             </View>
           ) : null}
 
+          <AboutBlock rows={aboutRows} />
+
           {photos.length > 1 && (
             <View style={styles.section}>
               <ThemedText type="smallBold">Photos ({photos.length})</ThemedText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
                 {photos.map((photo, index) => (
-                  <Pressable key={photo.file_path} onPress={() => setViewedPhotoIndex(index)}>
+                  <Pressable key={photo.file_path} onPress={() => setViewer({ photos: photos.map((item) => item.file_path), index })}>
                     <Image
                       source={{ uri: tmdbImageUrl(photo.file_path, 'w185') ?? undefined }}
                       style={styles.photo}
@@ -332,40 +359,28 @@ export default function PersonScreen() {
             </View>
           )}
 
-          {hasWikidataDetails && (
+          {taggedPhotos.length > 0 && (
             <View style={styles.section}>
-              {wikidata.family.length > 0 && (
-                <View style={styles.infoBlock}>
-                  <ThemedText type="smallBold">Famille</ThemedText>
-                  {wikidata.family.map((entry) => (
-                    <View key={entry.relation} style={styles.infoRow}>
-                      <ThemedText type="small" themeColor="textSecondary" style={styles.infoLabel}>
-                        {entry.relation}
-                      </ThemedText>
-                      <ThemedText type="small" style={styles.infoValue}>
-                        {entry.names.join(', ')}
-                      </ThemedText>
-                    </View>
-                  ))}
-                </View>
-              )}
-              {wikidata.awards.length > 0 && (
-                <View style={styles.infoBlock}>
-                  <ThemedText type="smallBold">Récompenses</ThemedText>
-                  {wikidata.awards.map((award, index) => (
-                    <View key={`${award.name}-${index}`} style={styles.infoRow}>
-                      <ThemedText type="small" themeColor="textSecondary" style={styles.infoLabel}>
-                        {award.year ?? '-'}
-                      </ThemedText>
-                      <ThemedText type="small" style={styles.infoValue}>
-                        {award.name}
-                      </ThemedText>
-                    </View>
-                  ))}
-                </View>
-              )}
+              <ThemedText type="smallBold">Images de films et de séries ({taggedPhotos.length})</ThemedText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+                {taggedPhotos.map((photo, index) => (
+                  <Pressable
+                    key={photo.file_path}
+                    onPress={() => setViewer({ photos: taggedPhotos.map((item) => item.file_path), index })}>
+                    <Image
+                      source={{ uri: tmdbImageUrl(photo.file_path, 'w342') ?? undefined }}
+                      style={styles.taggedPhoto}
+                      contentFit="cover"
+                    />
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
           )}
+
+          {wikidata && <FamilyBlock family={wikidata.family} />}
+          {wikidata && <AwardsBlock title="Récompenses" awards={wikidata.awards} />}
+          {wikidata && <AwardsBlock title="Nominations" awards={wikidata.nominations} />}
 
           {filmography.length > 0 && (
             <View style={styles.section}>
@@ -394,9 +409,9 @@ export default function PersonScreen() {
         />
 
         <PhotoViewer
-          photos={photos.map((photo) => photo.file_path)}
-          initialIndex={viewedPhotoIndex}
-          onClose={() => setViewedPhotoIndex(null)}
+          photos={viewer?.photos ?? []}
+          initialIndex={viewer?.index ?? null}
+          onClose={() => setViewer(null)}
         />
       </View>
     </>
@@ -429,6 +444,7 @@ const styles = StyleSheet.create({
   knownForPoster: { width: 100, height: 150, borderRadius: Spacing.two },
   centered: { textAlign: 'center' },
   photo: { width: 100, height: 150, borderRadius: Spacing.two },
+  taggedPhoto: { width: 180, height: 101, borderRadius: Spacing.two },
   infoBlock: { gap: Spacing.one, marginBottom: Spacing.two },
   infoRow: { flexDirection: 'row', gap: Spacing.two },
   infoLabel: { width: 96 },

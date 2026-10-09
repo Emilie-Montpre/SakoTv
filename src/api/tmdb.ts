@@ -63,7 +63,7 @@ export function getSeasonDetails(tvId: number, seasonNumber: number) {
 
 export function getPersonDetails(personId: number) {
   return tmdbFetch<TmdbPersonDetails>(`/person/${personId}`, {
-    append_to_response: 'external_ids,combined_credits,images',
+    append_to_response: 'external_ids,combined_credits,images,tagged_images',
   });
 }
 

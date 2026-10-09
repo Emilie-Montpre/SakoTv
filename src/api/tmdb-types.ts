@@ -163,6 +163,10 @@ export interface TmdbPersonDetails {
   place_of_birth: string | null;
   known_for_department: string;
   profile_path: string | null;
+  gender?: number;
+  homepage?: string | null;
+  also_known_as?: string[];
+  tagged_images?: { results: { file_path: string; aspect_ratio: number }[] };
   external_ids?: {
     wikidata_id: string | null;
     imdb_id: string | null;

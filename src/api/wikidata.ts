@@ -4,6 +4,7 @@ export type WikidataEntity = {
   id: string;
   labels?: Record<string, { language: string; value: string }>;
   claims?: Record<string, WikidataClaim[]>;
+  sitelinks?: Record<string, { title: string }>;
 };
 
 type WikidataSnak = { datavalue?: { value: unknown } };
@@ -13,10 +14,25 @@ type WikidataClaim = {
   qualifiers?: Record<string, WikidataSnak[]>;
 };
 
+export type WikidataAward = { name: string; year: string | null };
+
 export type WikidataPersonProfile = {
   heightMeters: number | null;
   family: { relation: string; names: string[] }[];
-  awards: { name: string; year: string | null }[];
+  awards: WikidataAward[];
+  nominations: WikidataAward[];
+  birthName: string | null;
+  nationalities: string[];
+  occupations: string[];
+  spokenLanguages: string[];
+  education: string[];
+  residences: string[];
+  memberOf: string[];
+  notableWorks: string[];
+  deathPlace: string | null;
+  deathCause: string | null;
+  officialWebsite: string | null;
+  wikipediaTitles: { fr: string | null; en: string | null };
 };
 
 const FAMILY_PROPERTIES: { property: string; relation: string }[] = [
@@ -34,7 +50,7 @@ export async function getWikidataEntity(wikidataId: string): Promise<WikidataEnt
   const url = new URL(BASE_URL);
   url.searchParams.set('action', 'wbgetentities');
   url.searchParams.set('ids', wikidataId);
-  url.searchParams.set('props', 'labels|claims');
+  url.searchParams.set('props', 'labels|claims|sitelinks');
   url.searchParams.set('languages', 'fr|en');
   url.searchParams.set('languagefallback', '1');
   url.searchParams.set('format', 'json');
@@ -98,27 +114,82 @@ function yearOf(claim: WikidataClaim): string | null {
   return match ? match[1] : null;
 }
 
+function idsOf(claims: Record<string, WikidataClaim[]>, property: string): string[] {
+  return (claims[property] ?? []).map((claim) => entityId(claim.mainsnak)).filter((id): id is string => id != null);
+}
+
+function textOf(claims: Record<string, WikidataClaim[]>, property: string): string | null {
+  const value = claims[property]?.[0]?.mainsnak.datavalue?.value as { text?: string } | string | undefined;
+  if (!value) return null;
+  return typeof value === 'string' ? value : (value.text ?? null);
+}
+
+function toAwards(claims: WikidataClaim[], labels: Map<string, string>): WikidataAward[] {
+  return claims
+    .map((claim) => ({ name: labels.get(entityId(claim.mainsnak) ?? ''), year: yearOf(claim) }))
+    .filter((award): award is WikidataAward => award.name != null)
+    .sort((a, b) => (b.year ?? '').localeCompare(a.year ?? ''));
+}
+
+function unique(values: (string | undefined)[]): string[] {
+  return [...new Set(values.filter((value): value is string => value != null))];
+}
+
 export async function getPersonWikidataProfile(wikidataId: string): Promise<WikidataPersonProfile> {
   const entity = await getWikidataEntity(wikidataId);
   const claims = entity.claims ?? {};
 
-  const familyIds = FAMILY_PROPERTIES.map(({ property }) =>
-    (claims[property] ?? []).map((claim) => entityId(claim.mainsnak)).filter((id): id is string => id != null),
-  );
+  const familyIds = FAMILY_PROPERTIES.map(({ property }) => idsOf(claims, property));
   const awardClaims = (claims.P166 ?? []).filter((claim) => entityId(claim.mainsnak) != null);
+  const nominationClaims = (claims.P1411 ?? []).filter((claim) => entityId(claim.mainsnak) != null);
 
-  const allIds = [...new Set([...familyIds.flat(), ...awardClaims.map((claim) => entityId(claim.mainsnak)!)])];
+  const listProperties = {
+    nationalities: idsOf(claims, 'P27'),
+    occupations: idsOf(claims, 'P106'),
+    spokenLanguages: idsOf(claims, 'P1412'),
+    education: idsOf(claims, 'P69'),
+    residences: idsOf(claims, 'P551'),
+    memberOf: idsOf(claims, 'P463'),
+    notableWorks: idsOf(claims, 'P800'),
+  };
+  const deathPlaceId = idsOf(claims, 'P20')[0];
+  const deathCauseId = idsOf(claims, 'P509')[0];
+
+  const allIds = unique([
+    ...familyIds.flat(),
+    ...awardClaims.map((claim) => entityId(claim.mainsnak)!),
+    ...nominationClaims.map((claim) => entityId(claim.mainsnak)!),
+    ...Object.values(listProperties).flat(),
+    deathPlaceId,
+    deathCauseId,
+  ]);
   const labels = allIds.length > 0 ? await getWikidataLabels(allIds) : new Map<string, string>();
+  const labelsOf = (ids: string[]) => unique(ids.map((id) => labels.get(id)));
 
   const family = FAMILY_PROPERTIES.map(({ relation }, index) => ({
     relation,
-    names: familyIds[index].map((id) => labels.get(id)).filter((name): name is string => name != null),
+    names: labelsOf(familyIds[index]),
   })).filter((entry) => entry.names.length > 0);
 
-  const awards = awardClaims
-    .map((claim) => ({ name: labels.get(entityId(claim.mainsnak)!), year: yearOf(claim) }))
-    .filter((award): award is { name: string; year: string | null } => award.name != null)
-    .sort((a, b) => (b.year ?? '').localeCompare(a.year ?? ''));
-
-  return { heightMeters: heightInMeters(claims.P2048), family, awards };
+  return {
+    heightMeters: heightInMeters(claims.P2048),
+    family,
+    awards: toAwards(awardClaims, labels),
+    nominations: toAwards(nominationClaims, labels),
+    birthName: textOf(claims, 'P1477'),
+    nationalities: labelsOf(listProperties.nationalities),
+    occupations: labelsOf(listProperties.occupations),
+    spokenLanguages: labelsOf(listProperties.spokenLanguages),
+    education: labelsOf(listProperties.education),
+    residences: labelsOf(listProperties.residences),
+    memberOf: labelsOf(listProperties.memberOf),
+    notableWorks: labelsOf(listProperties.notableWorks),
+    deathPlace: deathPlaceId ? (labels.get(deathPlaceId) ?? null) : null,
+    deathCause: deathCauseId ? (labels.get(deathCauseId) ?? null) : null,
+    officialWebsite: textOf(claims, 'P856'),
+    wikipediaTitles: {
+      fr: entity.sitelinks?.frwiki?.title ?? null,
+      en: entity.sitelinks?.enwiki?.title ?? null,
+    },
+  };
 }

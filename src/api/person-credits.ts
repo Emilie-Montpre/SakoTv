@@ -1,4 +1,5 @@
 import type { TmdbPersonCredit, TmdbPersonDetails } from './tmdb-types';
+import type { WikidataPersonProfile } from './wikidata';
 
 const EXCLUDED_GENRE_IDS = [10763, 10767];
 
@@ -221,4 +222,72 @@ export function ageFrom(birthday: string, deathday: string | null) {
   let age = end.getFullYear() - year;
   if (end.getMonth() + 1 < month || (end.getMonth() + 1 === month && end.getDate() < day)) age -= 1;
   return age;
+}
+
+export type AboutRow = { label: string; value: string; url?: string };
+
+function capitalize(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function distinct(values: string[]) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = value.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function normalizeOccupations(labels: string[], gender: number | undefined) {
+  const simplified = labels.map((label) => {
+    const match = label.match(/^(.+?) ou (.+?)( de .*)?$/);
+    const gendered = match ? (gender === 1 ? match[2] : match[1]) : label;
+    return capitalize(gendered.split(' de ')[0].split(" d'")[0].trim());
+  });
+  return distinct(simplified);
+}
+
+export function buildAboutRows(
+  person: TmdbPersonDetails,
+  wikidata: WikidataPersonProfile | undefined,
+  wikipediaUrl: string | null,
+): AboutRow[] {
+  const rows: (AboutRow | null)[] = [];
+  const names = [person.name, wikidata?.birthName ?? ''].map((name) => name.toLowerCase());
+
+  if (wikidata?.birthName && wikidata.birthName.toLowerCase() !== person.name.toLowerCase()) {
+    rows.push({ label: 'Nom de naissance', value: wikidata.birthName });
+  }
+
+  const aliases = distinct((person.also_known_as ?? []).filter((alias) => !names.includes(alias.toLowerCase()))).slice(0, 4);
+  if (aliases.length > 0) rows.push({ label: 'Aussi connu sous', value: aliases.join(', ') });
+
+  if (wikidata) {
+    if (wikidata.nationalities.length > 0) {
+      rows.push({ label: 'Nationalité', value: wikidata.nationalities.map(capitalize).join(', ') });
+    }
+    const occupations = normalizeOccupations(wikidata.occupations, person.gender);
+    if (occupations.length > 0) rows.push({ label: 'Métiers', value: occupations.join(', ') });
+    if (wikidata.spokenLanguages.length > 0) {
+      rows.push({ label: 'Langues parlées', value: wikidata.spokenLanguages.map(capitalize).join(', ') });
+    }
+    if (wikidata.education.length > 0) rows.push({ label: 'Études', value: wikidata.education.join(', ') });
+    if (wikidata.residences.length > 0) rows.push({ label: 'Résidence', value: wikidata.residences.join(', ') });
+    if (wikidata.memberOf.length > 0) rows.push({ label: 'Membre de', value: wikidata.memberOf.join(', ') });
+    if (wikidata.notableWorks.length > 0) rows.push({ label: 'Œuvres notables', value: wikidata.notableWorks.join(', ') });
+    if (person.deathday && (wikidata.deathPlace || wikidata.deathCause)) {
+      rows.push({
+        label: 'Décès',
+        value: [wikidata.deathPlace, wikidata.deathCause ? capitalize(wikidata.deathCause) : null].filter(Boolean).join(' - '),
+      });
+    }
+  }
+
+  const website = wikidata?.officialWebsite ?? person.homepage ?? null;
+  if (website) rows.push({ label: 'Site officiel', value: website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''), url: website });
+  if (wikipediaUrl) rows.push({ label: 'Wikipédia', value: 'Lire la page complète', url: wikipediaUrl });
+
+  return rows.filter((row): row is AboutRow => row != null);
 }
