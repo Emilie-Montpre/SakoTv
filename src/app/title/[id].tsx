@@ -12,7 +12,7 @@ import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-type
 import { ThemedText } from '@/components/themed-text';
 import { TitleRatings } from '@/components/title-ratings';
 import { TitleSimilar } from '@/components/title-similar';
-import { TitleStreaming } from '@/components/title-streaming';
+import { TitleLanguagesDetails, TitleLanguagesLine, TitleStreaming } from '@/components/title-streaming';
 
 import {
   displayStatusLabel,
@@ -179,6 +179,7 @@ export default function TitleDetailScreen() {
   const [activeSeason, setActiveSeason] = useState(0);
   const [confirming, setConfirming] = useState(false);
   const [mutating, setMutating] = useState(false);
+  const [languagesOpen, setLanguagesOpen] = useState(false);
 
   const dashIndex = id.indexOf('-');
   const mediaType = id.slice(0, dashIndex) as MediaType;
@@ -355,8 +356,16 @@ export default function TitleDetailScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               {details.genres.map((g) => g.name).join(', ')}
             </ThemedText>
+            <TitleLanguagesLine
+              mediaType={mediaType}
+              tmdbId={tmdbId}
+              open={languagesOpen}
+              onToggle={() => setLanguagesOpen((value) => !value)}
+            />
           </View>
         </View>
+
+        <TitleLanguagesDetails mediaType={mediaType} tmdbId={tmdbId} open={languagesOpen} />
 
         {trailers.length > 0 && (
           <Pressable
