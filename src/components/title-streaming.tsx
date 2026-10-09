@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   logoSlot: { width: '100%', height: 36, alignItems: 'center', justifyContent: 'center' },
   logo: { width: '100%', height: '100%' },
   logoFallback: { textAlign: 'center' },
-  languagesLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.half },
+  languagesLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: Spacing.two, rowGap: Spacing.half, marginTop: Spacing.half },
   languagesItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   languagesDetails: { gap: Spacing.one, paddingHorizontal: Spacing.three },
   languagesDetailRow: { flexDirection: 'row', gap: Spacing.two },
