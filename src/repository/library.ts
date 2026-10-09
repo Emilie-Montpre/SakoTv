@@ -282,6 +282,37 @@ export async function markSeasonWatched(titleId: number, episodeIds: number[], w
   await maybeCompleteShow(titleId);
 }
 
+/**
+ * Marque comme vu l'épisode ciblé et tous ceux qui le précèdent dans la série (saisons précédentes
+ * comprises, saison 0 exclue), sans toucher à ceux déjà vus — pas d'incrément de revisionnage ici, ce
+ * n'est qu'un rattrapage de ce qui manquait. Le statut du titre n'est recalculé qu'une fois à la fin.
+ */
+export async function markEpisodesUpTo(titleId: number, targetEpisodeId: number, watchedAt: number = Date.now()) {
+  const ordered = await db
+    .select({ id: episodes.id, seasonNumber: seasons.seasonNumber })
+    .from(episodes)
+    .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
+    .where(and(eq(seasons.titleId, titleId), gt(seasons.seasonNumber, 0)))
+    .orderBy(seasons.seasonNumber, episodes.episodeNumber);
+
+  const targetIndex = ordered.findIndex((entry) => entry.id === targetEpisodeId);
+  const toMark = targetIndex === -1 ? [targetEpisodeId] : ordered.slice(0, targetIndex + 1).map((entry) => entry.id);
+
+  const alreadyWatched = new Set(
+    (await db.select({ episodeId: watchedEpisodes.episodeId }).from(watchedEpisodes).where(eq(watchedEpisodes.titleId, titleId))).map(
+      (row) => row.episodeId,
+    ),
+  );
+
+  for (const episodeId of toMark) {
+    if (alreadyWatched.has(episodeId)) continue;
+    await db.insert(watchedEpisodes).values({ titleId, episodeId, watchedAt });
+  }
+
+  await resumeManualPause(titleId);
+  await maybeCompleteShow(titleId);
+}
+
 export async function unmarkEpisodeWatched(titleId: number, episodeId: number) {
   await db
     .delete(watchedEpisodes)

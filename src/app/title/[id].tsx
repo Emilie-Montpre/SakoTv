@@ -37,6 +37,7 @@ import { resolveImportFailure } from '@/repository/import-failures';
 import {
   addToLibrary,
   dropTitle,
+  markEpisodesUpTo,
   markEpisodeWatched,
   markMovieWatched,
   markSeasonWatched,
@@ -600,7 +601,36 @@ export default function TitleDetailScreen() {
                     ]);
                   }}
                   onLongPress={() => {
-                    if (!watched) return;
+                    if (!watched) {
+                      const activeSeasonNumber = local.seasons[activeSeason].seasonNumber;
+                      if (activeSeasonNumber === 0) return;
+                      const previousUnwatched = local.seasons
+                        .filter((season) => season.seasonNumber > 0 && season.seasonNumber <= activeSeasonNumber)
+                        .flatMap((season) =>
+                          season.episodes.filter(
+                            (candidate) =>
+                              (season.seasonNumber < activeSeasonNumber || candidate.episodeNumber < episode.episodeNumber) &&
+                              candidate.watchedAt == null,
+                          ),
+                        ).length;
+                      if (previousUnwatched === 0) {
+                        Alert.alert('Tous les épisodes précédents sont déjà vus.', undefined, [
+                          { text: 'Annuler', style: 'cancel' },
+                          { text: 'Marquer celui-ci', onPress: () => runMutation(() => markEpisodeWatched(titleId!, episode.id)) },
+                        ]);
+                        return;
+                      }
+                      Alert.alert(
+                        "Avez-vous regardé les épisodes d'avant ?",
+                        `${previousUnwatched} épisode${previousUnwatched > 1 ? 's' : ''} précédent${previousUnwatched > 1 ? 's' : ''} ${previousUnwatched > 1 ? 'ne sont' : "n'est"} pas marqué${previousUnwatched > 1 ? 's' : ''} comme vu${previousUnwatched > 1 ? 's' : ''}.`,
+                        [
+                          { text: 'Annuler', style: 'cancel' },
+                          { text: 'Seulement celui-ci', onPress: () => runMutation(() => markEpisodeWatched(titleId!, episode.id)) },
+                          { text: 'Tous jusqu\'ici', onPress: () => runMutation(() => markEpisodesUpTo(titleId!, episode.id)) },
+                        ],
+                      );
+                      return;
+                    }
                     Alert.alert('Marquer comme revu ?', undefined, [
                       { text: 'Annuler', style: 'cancel' },
                       { text: 'Revu', onPress: () => runMutation(() => markEpisodeWatched(titleId!, episode.id)) },
@@ -608,9 +638,19 @@ export default function TitleDetailScreen() {
                   }}>
                   <View style={styles.episodeStillWrap}>
                     {still ? (
-                      <Image source={{ uri: still }} style={styles.episodeStill} contentFit="cover" />
+                      <Image
+                        source={{ uri: still }}
+                        style={styles.episodeStill}
+                        contentFit="cover"
+                        blurRadius={watched ? 0 : 25}
+                      />
                     ) : (
                       <View style={[styles.episodeStill, { backgroundColor: theme.backgroundSelected }]} />
+                    )}
+                    {!watched && still && (
+                      <View style={styles.spoilerOverlay} pointerEvents="none">
+                        <Ionicons name="eye-off-outline" size={22} color="#fff" />
+                      </View>
                     )}
                     {watched && (
                       <View
@@ -647,9 +687,8 @@ export default function TitleDetailScreen() {
                         episodeNumber: episode.episodeNumber,
                       })
                     }
-                    hitSlop={8}
-                    style={styles.episodeDetailButton}>
-                    <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                    style={[styles.episodeDetailButton, { backgroundColor: theme.backgroundSelected }]}>
+                    <Ionicons name="chevron-forward" size={20} color={theme.text} />
                   </Pressable>
                 </Pressable>
               );
@@ -944,6 +983,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     borderRadius: Spacing.two,
     marginTop: Spacing.one,
+    overflow: 'hidden',
   },
   episodeStillWrap: { position: 'relative' },
   episodeStill: { width: 100, aspectRatio: 16 / 9, borderRadius: Spacing.two },
@@ -961,7 +1001,21 @@ const styles = StyleSheet.create({
   watchedBadgeCount: { color: '#fff', fontWeight: 'bold' },
   rowText: { flex: 1, gap: Spacing.one },
   episodeNumber: { textTransform: 'uppercase', letterSpacing: 0.5 },
-  episodeDetailButton: { padding: Spacing.one },
+  episodeDetailButton: {
+    alignSelf: 'stretch',
+    width: 48,
+    marginVertical: -Spacing.two,
+    marginRight: -Spacing.two,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spoilerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
   primaryButton: {
     paddingVertical: Spacing.two + 2,
     paddingHorizontal: Spacing.four,

@@ -308,6 +308,23 @@ Quand on tape sur un chip de saison pas encore entièrement vue (changement de s
 - [ ] **Biographie** : TMDB ne l'a souvent qu'en anglais pour les personnes peu connues ; aucune biographie n'est affichée si le français est vide (pas de repli anglais mis en place).
 - [ ] **Champs IMDb-only, hors de portée avec l'architecture 100% gratuite** : anecdotes/trivia, citations (partiellement via Wikiquote), marques de fabrique, salaires, popularité type "STARMETER". (La taille est couverte par Wikidata, retirée de cette liste.)
 
+## Backlog — Tutoriel des gestes (bonus)
+
+**Demandé le 2026-10-09 comme un bonus**, parce que l'app accumule des gestes à découvrir : tap pour cocher, tap sur la bande de droite pour le détail, appui long pour marquer comme revu, appui long sur un épisode non vu pour rattraper les précédents, appui long sur un chip de saison, appui long sur le bouton de statut (abandonner/revu), appui long sur une vignette de l'Accueil pour valider le prochain épisode.
+
+- [ ] Pas encore conçu. Pistes à proposer le moment venu : une page "Aide et gestes" accessible depuis Stats, des bulles d'aide affichées une seule fois à la première rencontre d'un écran (premier appui sur un épisode, première ouverture d'une Fiche), ou un petit bouton "?" par écran. À montrer en maquette avant de choisir.
+
+## Backlog — Acteurs favoris
+
+**Demandé le 2026-10-09, en attente de décisions** (où marquer, où retrouver, qui peut en être, éventuelles sorties à venir) — nécessite une nouvelle table en base et une migration. Proposition : étoile sur la page personne, pour toute personne (acteur, réalisation, écriture, voix), et section "Personnes favorites" dans la Bibliothèque.
+
+- [ ] À faire après validation des quatre décisions ci-dessus.
+
+## Fait — Rattraper les épisodes précédents (2026-10-09)
+
+- [x] Appui long sur un épisode **non vu** : demande "Avez-vous regardé les épisodes d'avant ?" avec le nombre d'épisodes précédents non vus (saisons précédentes comprises, saison 0 exclue) et trois choix : annuler, seulement celui-ci, ou tous jusqu'ici ([library.ts](src/repository/library.ts), `markEpisodesUpTo`). Les épisodes déjà vus ne sont pas touchés et leur compteur de revisionnage n'augmente pas. Si tous les précédents sont déjà vus, un message le dit et propose de marquer seulement celui-ci.
+- [x] Miniatures des épisodes non vus **floutées** avec une icône d'œil barré, pour ne pas dévoiler d'image avant d'ouvrir le détail ; bande de droite pleine hauteur et visible pour le détail de l'épisode.
+
 ## Backlog — Tests unitaires sur la logique la plus fragile
 
 Aucun test automatisé dans le projet actuellement. **Demandé le 2026-08-23**, suite à une revue de code générale. Pas des tests avec gestes/E2E (pas jugé utile ici, utilisatrice unique avec un flux de test manuel déjà établi sur téléphone réel) — des tests unitaires ciblés sur les fonctions pures/logique métier les plus à risque de régression silencieuse. **Framework tranché le 2026-08-25 : Jest** (standard pour un projet Expo/React Native). Gardé en attente pour plus tard, pas urgent — les trois zones ci-dessous restent valables quand on s'y met.
