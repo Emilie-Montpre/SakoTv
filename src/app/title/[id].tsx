@@ -9,9 +9,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getMovieDetails, getTvDetails, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-types';
+import { CastSheet } from '@/components/cast-sheet';
+import { EpisodeSheet, type EpisodeSheetData } from '@/components/episode-sheet';
+import { Synopsis } from '@/components/synopsis';
 import { ThemedText } from '@/components/themed-text';
 import { TitleRatings } from '@/components/title-ratings';
 import { TitleSimilar } from '@/components/title-similar';
+import { TitleReleaseBanner } from '@/components/title-release-banner';
 import { TitleLanguagesDetails, TitleLanguagesLine, TitleStreaming } from '@/components/title-streaming';
 
 import {
@@ -25,6 +29,7 @@ import {
   statusLabels,
   upToDateColor,
 } from '@/constants/content';
+import { isPreRelease } from '@/constants/release-status';
 import { Spacing } from '@/constants/theme';
 import type { LibraryStatus, MediaType } from '@/db/schema';
 import { useTheme } from '@/hooks/use-theme';
@@ -59,28 +64,7 @@ function computeLastEpisodeWatchedAt(seasons: SeasonWithEpisodes[]): number | un
   return latest;
 }
 
-const SYNOPSIS_COLLAPSED_LINES = 4;
-// Au-delà de ce nombre de caractères, un synopsis dépasse quasi systématiquement 4 lignes sur un écran de
-// téléphone — évite de dépendre d'onTextLayout, dont le déclenchement s'est révélé pas fiable ici.
-const SYNOPSIS_TRUNCATE_THRESHOLD = 220;
-
-function Synopsis({ text }: { text: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const isLong = text.length > SYNOPSIS_TRUNCATE_THRESHOLD;
-
-  return (
-    <View style={styles.overview}>
-      <ThemedText numberOfLines={!expanded && isLong ? SYNOPSIS_COLLAPSED_LINES : undefined}>{text}</ThemedText>
-      {isLong && (
-        <Pressable onPress={() => setExpanded((v) => !v)}>
-          <ThemedText type="small" themeColor="textSecondary">
-            {expanded ? 'Voir moins' : 'Lire la suite'}
-          </ThemedText>
-        </Pressable>
-      )}
-    </View>
-  );
-}
+const HEADER_POSTER_OVERLAP = 56;
 
 function formatRuntime(minutes: number) {
   const hours = Math.floor(minutes / 60);
@@ -172,7 +156,12 @@ function FreezeOverlay({ children }: { children: ReactNode }) {
 }
 
 export default function TitleDetailScreen() {
-  const { id, resolveFailureId } = useLocalSearchParams<{ id: string; resolveFailureId?: string }>();
+  const { id, resolveFailureId, episode: episodeParam, role: roleParam } = useLocalSearchParams<{
+    id: string;
+    resolveFailureId?: string;
+    episode?: string;
+    role?: string;
+  }>();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -180,6 +169,9 @@ export default function TitleDetailScreen() {
   const [confirming, setConfirming] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [languagesOpen, setLanguagesOpen] = useState(false);
+  const [castOpen, setCastOpen] = useState(false);
+  const [episodeTarget, setEpisodeTarget] = useState<{ seasonNumber: number; episodeNumber: number; roleNote?: string } | null>(null);
+  const episodeParamHandled = useRef(false);
 
   const dashIndex = id.indexOf('-');
   const mediaType = id.slice(0, dashIndex) as MediaType;
@@ -212,6 +204,16 @@ export default function TitleDetailScreen() {
     () => (localStateQuery.data ? computeLastEpisodeWatchedAt(localStateQuery.data.seasons) : undefined),
     [localStateQuery.data],
   );
+
+  useEffect(() => {
+    if (episodeParamHandled.current || !episodeParam || !localStateQuery.data) return;
+    episodeParamHandled.current = true;
+    const [seasonNumber, episodeNumber] = episodeParam.split('-').map(Number);
+    if (Number.isNaN(seasonNumber) || Number.isNaN(episodeNumber)) return;
+    const seasonIndex = localStateQuery.data.seasons.findIndex((season) => season.seasonNumber === seasonNumber);
+    if (seasonIndex >= 0) setActiveSeason(seasonIndex);
+    setEpisodeTarget({ seasonNumber, episodeNumber, roleNote: roleParam });
+  }, [episodeParam, roleParam, localStateQuery.data]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['title-local-state', titleId] });
 
@@ -282,11 +284,40 @@ export default function TitleDetailScreen() {
   const seasonCount = 'seasons' in details ? details.seasons.filter((s) => s.season_number > 0).length : undefined;
   const backdrop = tmdbImageUrl(details.backdrop_path, 'original');
   const poster = tmdbImageUrl(details.poster_path, 'w342');
-  const cast = details.credits?.cast?.slice(0, 12) ?? [];
+  const allCast = details.credits?.cast ?? [];
+  const cast = allCast.slice(0, 12);
   const tvStatus = 'first_air_date' in details ? details.status : undefined;
+  const preRelease = isPreRelease(details.status);
+  const networkNames = 'networks' in details ? (details.networks ?? []).map((network) => network.name) : [];
+  const creatorNames = 'created_by' in details ? (details.created_by ?? []).map((creator) => creator.name) : [];
+  const companyNames = (details.production_companies ?? []).map((company) => company.name);
   const trailers = findTrailers(details.videos?.results);
   const imdbId = 'imdb_id' in details ? details.imdb_id : 'external_ids' in details ? details.external_ids?.imdb_id : undefined;
   const local = localStateQuery.data;
+  const targetEpisode = episodeTarget
+    ? local?.seasons
+        .find((season) => season.seasonNumber === episodeTarget.seasonNumber)
+        ?.episodes.find((episode) => episode.episodeNumber === episodeTarget.episodeNumber)
+    : undefined;
+  const episodeSheetData: EpisodeSheetData | null =
+    episodeTarget && targetEpisode
+      ? {
+          seasonNumber: episodeTarget.seasonNumber,
+          episodeNumber: episodeTarget.episodeNumber,
+          name: targetEpisode.name,
+          overview: targetEpisode.overview,
+          airDate: targetEpisode.airDate,
+          runtime: targetEpisode.runtime,
+          stillPath: targetEpisode.stillPath,
+          episodeId: targetEpisode.id,
+          watched: targetEpisode.watchedAt != null,
+          watchedAt: targetEpisode.watchedAt,
+          rewatchCount: targetEpisode.rewatchCount,
+          seasonEpisodeCount:
+            local?.seasons.find((season) => season.seasonNumber === episodeTarget.seasonNumber)?.episodes.length ?? 0,
+          roleNote: episodeTarget.roleNote,
+        }
+      : null;
 
   return (
     <>
@@ -338,20 +369,28 @@ export default function TitleDetailScreen() {
           style={{ backgroundColor: theme.background }}
           contentContainerStyle={[styles.scroll, { paddingTop: insets.top }]}
         >
-          {backdrop && <Image source={{ uri: backdrop }} style={styles.backdrop} contentFit="cover" />}
+          {backdrop ? (
+            <Image source={{ uri: backdrop }} style={styles.backdrop} contentFit="cover" />
+          ) : (
+            <View style={styles.backdropPlaceholder} />
+          )}
 
-        <View style={styles.headerRow}>
+        <View style={[styles.headerRow, !backdrop && styles.headerRowNoBackdrop]}>
           {poster ? (
             <Image source={{ uri: poster }} style={styles.poster} contentFit="cover" />
           ) : (
             <View style={[styles.poster, { backgroundColor: theme.backgroundSelected }]} />
           )}
-          <View style={styles.headerText}>
+          <View style={[styles.headerText, !backdrop && styles.headerTextNoBackdrop]}>
             <ThemedText type="subtitle">{name}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {releaseDate?.slice(0, 4) ?? '—'}
-              {runtime ? ` · ${formatRuntime(runtime)}` : ''}
-              {seasonCount ? ` · ${seasonCount} saison${seasonCount > 1 ? 's' : ''}` : ''}
+              {[
+                releaseDate ? releaseDate.slice(0, 4) : 'Date inconnue',
+                runtime ? formatRuntime(runtime) : null,
+                seasonCount ? `${seasonCount} saison${seasonCount > 1 ? 's' : ''}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               {details.genres.map((g) => g.name).join(', ')}
@@ -421,6 +460,16 @@ export default function TitleDetailScreen() {
           />
         )}
 
+        {preRelease && (
+          <TitleReleaseBanner
+            status={details.status}
+            releaseDate={releaseDate}
+            networks={networkNames}
+            creators={creatorNames}
+            companies={companyNames}
+          />
+        )}
+
         {details.overview ? <Synopsis text={details.overview} /> : null}
 
         <TitleRatings imdbId={imdbId} />
@@ -429,12 +478,22 @@ export default function TitleDetailScreen() {
 
         {cast.length > 0 && (
           <View style={styles.section}>
-            <ThemedText type="smallBold">Casting</ThemedText>
+            <View style={styles.castHeader}>
+              <ThemedText type="smallBold">Casting</ThemedText>
+              {allCast.length > cast.length && (
+                <Pressable onPress={() => setCastOpen(true)} hitSlop={8} style={styles.castSeeAll}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Tout voir ({allCast.length})
+                  </ThemedText>
+                  <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+                </Pressable>
+              )}
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.castRow}>
               {cast.map((member) => {
                 const profile = tmdbImageUrl(member.profile_path, 'w185');
                 return (
-                  <View key={member.id} style={styles.castItem}>
+                  <Pressable key={member.id} style={styles.castItem} onPress={() => router.push(`/person/${member.id}`)}>
                     {profile ? (
                       <Image source={{ uri: profile }} style={styles.castPhoto} contentFit="cover" />
                     ) : (
@@ -446,14 +505,24 @@ export default function TitleDetailScreen() {
                     <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.castName}>
                       {member.character}
                     </ThemedText>
-                  </View>
+                  </Pressable>
                 );
               })}
+              {allCast.length > cast.length && (
+                <Pressable style={styles.castItem} onPress={() => setCastOpen(true)}>
+                  <View style={[styles.castPhoto, styles.castMore, { backgroundColor: theme.backgroundElement }]}>
+                    <ThemedText type="smallBold">+{allCast.length - cast.length}</ThemedText>
+                  </View>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.castName}>
+                    Tout voir
+                  </ThemedText>
+                </Pressable>
+              )}
             </ScrollView>
           </View>
         )}
 
-        {mediaType === 'tv' && local && local.seasons.length > 0 && (
+        {mediaType === 'tv' && local && local.seasons.length > 0 && !(preRelease && local.seasons.every((season) => season.episodes.every((episode) => !episode.airDate))) && (
           <View style={styles.section}>
             <ThemedText type="smallBold">Épisodes</ThemedText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seasonRow}>
@@ -570,7 +639,16 @@ export default function TitleDetailScreen() {
                       </ThemedText>
                     )}
                   </View>
-                  <Pressable disabled={frozen} onPress={() => {}} hitSlop={8} style={styles.episodeDetailButton}>
+                  <Pressable
+                    disabled={frozen}
+                    onPress={() =>
+                      setEpisodeTarget({
+                        seasonNumber: local.seasons[activeSeason].seasonNumber,
+                        episodeNumber: episode.episodeNumber,
+                      })
+                    }
+                    hitSlop={8}
+                    style={styles.episodeDetailButton}>
                     <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
                   </Pressable>
                 </Pressable>
@@ -581,6 +659,28 @@ export default function TitleDetailScreen() {
 
         <TitleSimilar mediaType={mediaType} tmdbId={tmdbId} />
         </ScrollView>
+        <CastSheet
+          visible={castOpen}
+          members={allCast}
+          onClose={() => setCastOpen(false)}
+          onOpenPerson={(personId) => {
+            setCastOpen(false);
+            router.push(`/person/${personId}`);
+          }}
+        />
+        <EpisodeSheet
+          tvId={tmdbId}
+          seriesImdbId={imdbId}
+          episode={episodeSheetData}
+          onClose={() => setEpisodeTarget(null)}
+          busy={mutating}
+          onMarkWatched={(episodeId) => runMutation(() => markEpisodeWatched(titleId!, episodeId))}
+          onUnmarkWatched={(episodeId) => runMutation(() => unmarkEpisodeWatched(titleId!, episodeId))}
+          onOpenPerson={(personId) => {
+            setEpisodeTarget(null);
+            router.push(`/person/${personId}`);
+          }}
+        />
       </View>
     </>
   );
@@ -810,9 +910,12 @@ const styles = StyleSheet.create({
   freezeLabel: { color: '#fff', fontSize: 16, marginHorizontal: Spacing.three, textAlign: 'center' },
   scroll: { paddingBottom: Spacing.six, gap: Spacing.three },
   backdrop: { width: '100%', height: 200 },
-  headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three, marginTop: -Spacing.five },
+  backdropPlaceholder: { width: '100%', height: 56 },
+  headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three, marginTop: -HEADER_POSTER_OVERLAP },
+  headerRowNoBackdrop: { marginTop: 0 },
   poster: { width: 100, height: 150, borderRadius: Spacing.two },
-  headerText: { flex: 1, justifyContent: 'flex-end', gap: Spacing.half },
+  headerText: { flex: 1, gap: Spacing.half, paddingTop: HEADER_POSTER_OVERLAP - Spacing.one },
+  headerTextNoBackdrop: { paddingTop: 0 },
   trailerButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -823,10 +926,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: Spacing.five,
   },
-  overview: { paddingHorizontal: Spacing.three, gap: Spacing.one },
   section: { gap: Spacing.two, paddingHorizontal: Spacing.three },
   castRow: { gap: Spacing.three, paddingVertical: Spacing.one },
   castItem: { width: 80, gap: Spacing.half },
+  castHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  castSeeAll: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half },
+  castMore: { alignItems: 'center', justifyContent: 'center' },
   castPhoto: { width: 80, height: 80, borderRadius: 40 },
   castName: { textAlign: 'center' },
   seasonRow: { gap: Spacing.two, paddingVertical: Spacing.one },

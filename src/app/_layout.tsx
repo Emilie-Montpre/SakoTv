@@ -22,6 +22,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="title/[id]" />
+          <Stack.Screen name="person/[id]" />
           <Stack.Screen name="import" options={{ presentation: 'modal', headerShown: true, title: 'Import TV Time' }} />
         </Stack>
         {/* Android edge-to-edge can't be disabled (forced since Android 15, and app.json's
