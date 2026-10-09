@@ -50,7 +50,7 @@ export function getMovieDetails(tmdbId: number) {
 }
 
 export function getTvDetails(tmdbId: number) {
-  return tmdbFetch<TmdbTvDetails>(`/tv/${tmdbId}`, { append_to_response: 'credits,videos' });
+  return tmdbFetch<TmdbTvDetails>(`/tv/${tmdbId}`, { append_to_response: 'credits,videos,external_ids' });
 }
 
 export function getSeasonDetails(tvId: number, seasonNumber: number) {

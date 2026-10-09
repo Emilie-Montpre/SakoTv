@@ -10,6 +10,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMovieDetails, getTvDetails, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-types';
 import { ThemedText } from '@/components/themed-text';
+import { TitleRatings } from '@/components/title-ratings';
+import { TitleSimilar } from '@/components/title-similar';
+import { TitleStreaming } from '@/components/title-streaming';
 
 import {
   displayStatusLabel,
@@ -281,6 +284,7 @@ export default function TitleDetailScreen() {
   const cast = details.credits?.cast?.slice(0, 12) ?? [];
   const tvStatus = 'first_air_date' in details ? details.status : undefined;
   const trailers = findTrailers(details.videos?.results);
+  const imdbId = 'imdb_id' in details ? details.imdb_id : 'external_ids' in details ? details.external_ids?.imdb_id : undefined;
   const local = localStateQuery.data;
 
   return (
@@ -409,6 +413,10 @@ export default function TitleDetailScreen() {
         )}
 
         {details.overview ? <Synopsis text={details.overview} /> : null}
+
+        <TitleRatings imdbId={imdbId} />
+
+        <TitleStreaming mediaType={mediaType} tmdbId={tmdbId} />
 
         {cast.length > 0 && (
           <View style={styles.section}>
@@ -561,6 +569,8 @@ export default function TitleDetailScreen() {
             })}
           </View>
         )}
+
+        <TitleSimilar mediaType={mediaType} tmdbId={tmdbId} />
         </ScrollView>
       </View>
     </>

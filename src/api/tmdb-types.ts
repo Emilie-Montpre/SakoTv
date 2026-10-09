@@ -77,6 +77,7 @@ export interface TmdbMovieDetails {
   backdrop_path: string | null;
   genres: TmdbGenre[];
   status: string;
+  imdb_id?: string | null;
   credits?: TmdbCredits;
   videos?: TmdbVideos;
 }
@@ -94,6 +95,7 @@ export interface TmdbTvDetails {
   origin_country: string[];
   seasons: TmdbSeasonSummary[];
   next_episode_to_air: TmdbNextEpisodeToAir | null;
+  external_ids?: { imdb_id: string | null };
   credits?: TmdbCredits;
   videos?: TmdbVideos;
 }
