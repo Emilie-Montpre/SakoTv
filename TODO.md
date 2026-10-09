@@ -102,6 +102,8 @@ Regroupe deux besoins qui partagent le même mécanisme de revue, mais dont les 
 
 Rendre les tuiles de l'écran Stats cliquables pour voir le détail derrière chaque nombre. **Demandé le 2026-08-21, précisé le 2026-08-22.**
 
+**Précisé le 2026-10-09** : "Films vus", "Favoris" et "Dans la bibliothèque" sont à faire en priorité, avec un écran de liste réutilisable partagé avec "Personnes favorites" (voir la section du même nom plus bas). Les tuiles Animés/Séries et le détail du bilan par année viennent après.
+
 - [ ] **Films vus** → clic → liste des films vus
 - [ ] **Favoris** → clic → liste des titres favoris
 - [ ] **Dans la bibliothèque** → clic → ouvre l'écran Bibliothèque existant (pas de vue séparée à créer, juste une navigation)
@@ -314,11 +316,17 @@ Quand on tape sur un chip de saison pas encore entièrement vue (changement de s
 
 - [ ] Pas encore conçu. Pistes à proposer le moment venu : une page "Aide et gestes" accessible depuis Stats, des bulles d'aide affichées une seule fois à la première rencontre d'un écran (premier appui sur un épisode, première ouverture d'une Fiche), ou un petit bouton "?" par écran. À montrer en maquette avant de choisir.
 
-## Backlog — Acteurs favoris
+## Backlog — Personnes favorites (Catégorie 6, Stats)
 
-**Demandé le 2026-10-09, en attente de décisions** (où marquer, où retrouver, qui peut en être, éventuelles sorties à venir) — nécessite une nouvelle table en base et une migration. Proposition : étoile sur la page personne, pour toute personne (acteur, réalisation, écriture, voix), et section "Personnes favorites" dans la Bibliothèque.
+**Demandé le 2026-10-09, décisions prises, confiées à la Catégorie 6** (écran Stats). Le but : retrouver ses personnes favorites dans l'espace personnel de l'utilisatrice, c'est-à-dire dans Stats.
 
-- [ ] À faire après validation des quatre décisions ci-dessus.
+- [ ] **Marquer** : une étoile sur la page personne ([person/[id].tsx](src/app/person/[id].tsx)), au même endroit et dans le même style que l'étoile des titres favoris de la Fiche. Pour **toute personne** (acteur, réalisation, écriture, voix), d'où le nom "Personnes favorites".
+- [ ] **Retrouver** : dans Stats, une ligne pleine largeur **"Personnes favorites (N)"** sous "Temps de visionnage total", dans le même style que cette ligne. Un tap ouvre la liste.
+- [ ] **La liste** : photo, nom et métier principal, une ligne par personne ; un tap ouvre sa page. Pour en retirer une, on repasse par l'étoile de sa page.
+- [ ] **Base de données** : nouvelle table `favorite_people` (identifiant TMDB de la personne unique, nom, photo, métier principal, date d'ajout) avec migration. Le nom et la photo sont enregistrés au moment du favori pour que la liste s'affiche sans rappeler l'API. Un ajout pur : aucune table existante n'est modifiée.
+- [ ] **Écran de liste réutilisable** : un seul écran paramétré (films vus, titres favoris, personnes favorites) plutôt que trois écrans, partagé avec les tuiles de "Stats interactives" ci-dessus.
+- [ ] **Dépendance à connaître** : la page personne a été construite dans la branche `Fiche-détail-enrichie-(contenu-externe)` et n'existe sur `master` qu'une fois cette branche fusionnée. Il faut l'avoir fusionnée avant de commencer l'étoile.
+- [ ] **Plus tard, pas maintenant** : voir les sorties à venir des personnes favorites ; ne rien faire ici, mais ne pas fermer la porte (garder l'identifiant TMDB de la personne dans la table suffit).
 
 ## Fait — Rattraper les épisodes précédents (2026-10-09)
 
