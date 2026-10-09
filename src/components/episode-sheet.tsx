@@ -13,6 +13,7 @@ import { ThemedText } from '@/components/themed-text';
 import { EpisodeImdbRating } from '@/components/title-ratings';
 import { EpisodeLanguages } from '@/components/title-streaming';
 import { statusColors } from '@/constants/content';
+import { castTitle } from '@/constants/languages';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -32,15 +33,25 @@ export type EpisodeSheetData = {
   roleNote?: string | null;
 };
 
+export type EpisodeNeighbor = {
+  seasonNumber: number;
+  episodeNumber: number;
+  name: string | null;
+};
+
 type Props = {
   tvId: number;
   seriesImdbId: string | null | undefined;
+  originalLanguage: string | null;
   episode: EpisodeSheetData | null;
   onClose: () => void;
   onOpenPerson: (personId: number) => void;
   onMarkWatched: (episodeId: number) => void;
   onUnmarkWatched: (episodeId: number) => void;
   busy: boolean;
+  previous: EpisodeNeighbor | null;
+  next: EpisodeNeighbor | null;
+  onNavigate: (seasonNumber: number, episodeNumber: number) => void;
 };
 
 const PRIMARY_DEPARTMENTS = ['Directing', 'Writing'];
@@ -223,6 +234,7 @@ function WatchedButton({
 function EpisodeContent({
   tvId,
   seriesImdbId,
+  originalLanguage,
   episode,
   onOpenPerson,
   onMarkWatched,
@@ -231,6 +243,7 @@ function EpisodeContent({
 }: {
   tvId: number;
   seriesImdbId: string | null | undefined;
+  originalLanguage: string | null;
   episode: EpisodeSheetData;
   onOpenPerson: Props['onOpenPerson'];
   onMarkWatched: Props['onMarkWatched'];
@@ -345,7 +358,9 @@ function EpisodeContent({
       {creditsQuery.isLoading && <ActivityIndicator />}
       {creditsQuery.data && (
         <>
-          <CastRow title="Distribution" members={creditsQuery.data.cast} onOpenPerson={onOpenPerson} />
+          <CastRow
+            title={castTitle('Distribution', creditsQuery.data.cast, originalLanguage)}
+            members={creditsQuery.data.cast} onOpenPerson={onOpenPerson} />
           <CastRow title="Invités" members={creditsQuery.data.guest_stars} onOpenPerson={onOpenPerson} />
           <CrewBlock credits={creditsQuery.data} onOpenPerson={onOpenPerson} />
         </>
@@ -355,15 +370,56 @@ function EpisodeContent({
   );
 }
 
+function NeighborButton({
+  neighbor,
+  direction,
+  onNavigate,
+}: {
+  neighbor: EpisodeNeighbor | null;
+  direction: 'previous' | 'next';
+  onNavigate: Props['onNavigate'];
+}) {
+  const theme = useTheme();
+  const isPrevious = direction === 'previous';
+
+  if (!neighbor) return <View style={styles.neighborSlot} />;
+
+  const code = `${neighbor.seasonNumber === 0 ? 'Spécial' : `S${neighbor.seasonNumber}`} · E${neighbor.episodeNumber}`;
+
+  return (
+    <Pressable
+      onPress={() => onNavigate(neighbor.seasonNumber, neighbor.episodeNumber)}
+      style={[
+        styles.neighborSlot,
+        styles.neighborButton,
+        { backgroundColor: theme.backgroundSelected, flexDirection: isPrevious ? 'row' : 'row-reverse' },
+      ]}>
+      <Ionicons name={isPrevious ? 'chevron-back' : 'chevron-forward'} size={20} color={theme.text} />
+      <View style={[styles.neighborText, { alignItems: isPrevious ? 'flex-start' : 'flex-end' }]}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {isPrevious ? 'Précédent' : 'Suivant'}
+        </ThemedText>
+        <ThemedText type="small" numberOfLines={1}>
+          {code}
+        </ThemedText>
+      </View>
+    </Pressable>
+  );
+}
+
 export function EpisodeSheet({
   tvId,
   seriesImdbId,
+  originalLanguage,
   episode,
   onClose,
   onOpenPerson,
   onMarkWatched,
   onUnmarkWatched,
   busy,
+  previous,
+  next,
+  onNavigate,
 }: Props) {
   return (
     <OverlayPage visible={episode != null} onClose={onClose}>
@@ -372,6 +428,7 @@ export function EpisodeSheet({
           key={`${episode.seasonNumber}-${episode.episodeNumber}`}
           tvId={tvId}
           seriesImdbId={seriesImdbId}
+          originalLanguage={originalLanguage}
           episode={episode}
           onOpenPerson={onOpenPerson}
           onMarkWatched={onMarkWatched}
@@ -379,11 +436,27 @@ export function EpisodeSheet({
           busy={busy}
         />
       )}
+      {episode && (
+        <View style={styles.neighborBar}>
+          <NeighborButton neighbor={previous} direction="previous" onNavigate={onNavigate} />
+          <NeighborButton neighbor={next} direction="next" onNavigate={onNavigate} />
+        </View>
+      )}
     </OverlayPage>
   );
 }
 
 const styles = StyleSheet.create({
+  neighborBar: { flexDirection: 'row', gap: Spacing.two, padding: Spacing.two },
+  neighborSlot: { flex: 1 },
+  neighborButton: {
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.two,
+  },
+  neighborText: { flexShrink: 1 },
   overviewBlock: { gap: Spacing.one },
   scrollContent: { paddingBottom: Spacing.four },
   body: { gap: Spacing.three, paddingHorizontal: Spacing.three, paddingTop: Spacing.three },

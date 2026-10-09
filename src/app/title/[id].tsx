@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMovieDetails, getTvDetails, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-types';
 import { CastSheet } from '@/components/cast-sheet';
-import { EpisodeSheet, type EpisodeSheetData } from '@/components/episode-sheet';
+import { EpisodeSheet, type EpisodeNeighbor, type EpisodeSheetData } from '@/components/episode-sheet';
 import { Synopsis } from '@/components/synopsis';
 import { ThemedText } from '@/components/themed-text';
 import { TitleRatings } from '@/components/title-ratings';
@@ -29,6 +29,7 @@ import {
   statusLabels,
   upToDateColor,
 } from '@/constants/content';
+import { castTitle, originalLanguageName } from '@/constants/languages';
 import { isPreRelease } from '@/constants/release-status';
 import { Spacing } from '@/constants/theme';
 import type { LibraryStatus, MediaType } from '@/db/schema';
@@ -287,6 +288,8 @@ export default function TitleDetailScreen() {
   const poster = tmdbImageUrl(details.poster_path, 'w342');
   const allCast = details.credits?.cast ?? [];
   const cast = allCast.slice(0, 12);
+  const originalLanguage = originalLanguageName(details.original_language);
+  const castHeading = castTitle('Casting', allCast, originalLanguage);
   const tvStatus = 'first_air_date' in details ? details.status : undefined;
   const preRelease = isPreRelease(details.status);
   const networkNames = 'networks' in details ? (details.networks ?? []).map((network) => network.name) : [];
@@ -300,6 +303,26 @@ export default function TitleDetailScreen() {
         .find((season) => season.seasonNumber === episodeTarget.seasonNumber)
         ?.episodes.find((episode) => episode.episodeNumber === episodeTarget.episodeNumber)
     : undefined;
+  const neighborEpisodes = (() => {
+    if (!episodeTarget || !local) return { previous: null, next: null };
+    const group = local.seasons.filter((season) =>
+      episodeTarget.seasonNumber === 0 ? season.seasonNumber === 0 : season.seasonNumber > 0,
+    );
+    const flat = group.flatMap((season) =>
+      season.episodes.map((episode) => ({
+        seasonNumber: season.seasonNumber,
+        episodeNumber: episode.episodeNumber,
+        name: episode.name,
+      })),
+    );
+    const index = flat.findIndex(
+      (entry) => entry.seasonNumber === episodeTarget.seasonNumber && entry.episodeNumber === episodeTarget.episodeNumber,
+    );
+    return {
+      previous: index > 0 ? (flat[index - 1] as EpisodeNeighbor) : null,
+      next: index >= 0 && index < flat.length - 1 ? (flat[index + 1] as EpisodeNeighbor) : null,
+    };
+  })();
   const episodeSheetData: EpisodeSheetData | null =
     episodeTarget && targetEpisode
       ? {
@@ -480,7 +503,9 @@ export default function TitleDetailScreen() {
         {cast.length > 0 && (
           <View style={styles.section}>
             <View style={styles.castHeader}>
-              <ThemedText type="smallBold">Casting</ThemedText>
+              <ThemedText type="smallBold" style={styles.castHeading}>
+                {castHeading}
+              </ThemedText>
               {allCast.length > cast.length && (
                 <Pressable onPress={() => setCastOpen(true)} hitSlop={8} style={styles.castSeeAll}>
                   <ThemedText type="small" themeColor="textSecondary">
@@ -701,6 +726,7 @@ export default function TitleDetailScreen() {
         <CastSheet
           visible={castOpen}
           members={allCast}
+          title={castHeading}
           onClose={() => setCastOpen(false)}
           onOpenPerson={(personId) => {
             setCastOpen(false);
@@ -710,9 +736,17 @@ export default function TitleDetailScreen() {
         <EpisodeSheet
           tvId={tmdbId}
           seriesImdbId={imdbId}
+          originalLanguage={originalLanguage}
           episode={episodeSheetData}
           onClose={() => setEpisodeTarget(null)}
           busy={mutating}
+          previous={neighborEpisodes.previous}
+          next={neighborEpisodes.next}
+          onNavigate={(seasonNumber, episodeNumber) => {
+            const seasonIndex = local?.seasons.findIndex((season) => season.seasonNumber === seasonNumber) ?? -1;
+            if (seasonIndex >= 0) setActiveSeason(seasonIndex);
+            setEpisodeTarget({ seasonNumber, episodeNumber });
+          }}
           onMarkWatched={(episodeId) => runMutation(() => markEpisodeWatched(titleId!, episodeId))}
           onUnmarkWatched={(episodeId) => runMutation(() => unmarkEpisodeWatched(titleId!, episodeId))}
           onOpenPerson={(personId) => {
@@ -968,6 +1002,7 @@ const styles = StyleSheet.create({
   section: { gap: Spacing.two, paddingHorizontal: Spacing.three },
   castRow: { gap: Spacing.three, paddingVertical: Spacing.one },
   castItem: { width: 80, gap: Spacing.half },
+  castHeading: { flex: 1 },
   castHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   castSeeAll: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half },
   castMore: { alignItems: 'center', justifyContent: 'center' },

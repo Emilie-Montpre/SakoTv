@@ -77,6 +77,7 @@ export interface TmdbMovieDetails {
   backdrop_path: string | null;
   genres: TmdbGenre[];
   status: string;
+  original_language?: string;
   imdb_id?: string | null;
   production_companies?: { name: string }[];
   credits?: TmdbCredits;
@@ -94,6 +95,7 @@ export interface TmdbTvDetails {
   genres: TmdbGenre[];
   status: string;
   origin_country: string[];
+  original_language?: string;
   seasons: TmdbSeasonSummary[];
   number_of_episodes?: number;
   next_episode_to_air: TmdbNextEpisodeToAir | null;
@@ -161,7 +163,15 @@ export interface TmdbPersonDetails {
   place_of_birth: string | null;
   known_for_department: string;
   profile_path: string | null;
-  external_ids?: { wikidata_id: string | null; imdb_id: string | null };
+  external_ids?: {
+    wikidata_id: string | null;
+    imdb_id: string | null;
+    instagram_id?: string | null;
+    twitter_id?: string | null;
+    facebook_id?: string | null;
+    tiktok_id?: string | null;
+    youtube_id?: string | null;
+  };
   combined_credits?: { cast: TmdbPersonCredit[]; crew: TmdbPersonCredit[] };
   images?: { profiles: TmdbPersonImage[] };
 }

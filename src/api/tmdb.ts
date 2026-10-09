@@ -67,6 +67,10 @@ export function getPersonDetails(personId: number) {
   });
 }
 
+export function getPersonBiographyEnglish(personId: number) {
+  return tmdbFetch<{ biography: string }>(`/person/${personId}`, { language: 'en-US' });
+}
+
 export function getCreditDetails(creditId: string) {
   return tmdbFetch<TmdbCreditDetails>(`/credit/${creditId}`);
 }

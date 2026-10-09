@@ -11,11 +11,13 @@ import { useTheme } from '@/hooks/use-theme';
 export function CastSheet({
   visible,
   members,
+  title,
   onClose,
   onOpenPerson,
 }: {
   visible: boolean;
   members: TmdbCastMember[];
+  title: string;
   onClose: () => void;
   onOpenPerson: (personId: number) => void;
 }) {
@@ -24,7 +26,9 @@ export function CastSheet({
   return (
     <OverlayPage visible={visible} onClose={onClose}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ThemedText type="smallBold">Casting complet ({members.length})</ThemedText>
+        <ThemedText type="smallBold">
+          {title} ({members.length})
+        </ThemedText>
         {members.map((member) => {
           const photo = tmdbImageUrl(member.profile_path, 'w185');
           return (

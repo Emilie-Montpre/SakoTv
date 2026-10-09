@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useState, type ComponentProps } from 'react';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -16,8 +16,8 @@ import {
   type FilmographyEntry,
   type FilmographyGroup,
 } from '@/api/person-credits';
-import { getCreditDetails, getPersonDetails, tmdbImageUrl } from '@/api/tmdb';
-import type { TmdbPersonCredit } from '@/api/tmdb-types';
+import { getCreditDetails, getPersonBiographyEnglish, getPersonDetails, tmdbImageUrl } from '@/api/tmdb';
+import type { TmdbPersonCredit, TmdbPersonDetails } from '@/api/tmdb-types';
 import { getPersonWikidataProfile } from '@/api/wikidata';
 import { CreditSheet } from '@/components/credit-sheet';
 import { PhotoViewer } from '@/components/photo-viewer';
@@ -68,6 +68,20 @@ async function openCredit(
   }
 
   openSheet(entry);
+}
+
+type SocialLink = { key: string; icon: ComponentProps<typeof Ionicons>['name']; url: string };
+
+function buildSocialLinks(ids: TmdbPersonDetails['external_ids']): SocialLink[] {
+  if (!ids) return [];
+  const links: (SocialLink | null)[] = [
+    ids.instagram_id ? { key: 'instagram', icon: 'logo-instagram', url: `https://www.instagram.com/${ids.instagram_id}` } : null,
+    ids.twitter_id ? { key: 'x', icon: 'logo-twitter', url: `https://x.com/${ids.twitter_id}` } : null,
+    ids.facebook_id ? { key: 'facebook', icon: 'logo-facebook', url: `https://www.facebook.com/${ids.facebook_id}` } : null,
+    ids.tiktok_id ? { key: 'tiktok', icon: 'logo-tiktok', url: `https://www.tiktok.com/@${ids.tiktok_id}` } : null,
+    ids.youtube_id ? { key: 'youtube', icon: 'logo-youtube', url: `https://www.youtube.com/${ids.youtube_id}` } : null,
+  ];
+  return links.filter((link): link is SocialLink => link != null);
 }
 
 function FilmographyRow({ entry, onOpen }: { entry: FilmographyEntry; onOpen: (entry: FilmographyEntry) => void }) {
@@ -146,6 +160,14 @@ export default function PersonScreen() {
     queryFn: () => getPersonDetails(personId),
   });
 
+  const frenchBiography = personQuery.data?.biography?.trim() ?? '';
+  const englishBiographyQuery = useQuery({
+    queryKey: ['tmdb-person-biography-en', personId],
+    queryFn: () => getPersonBiographyEnglish(personId),
+    enabled: personQuery.data != null && frenchBiography === '',
+  });
+  const englishBiography = englishBiographyQuery.data?.biography?.trim() ?? '';
+
   const wikidataId = personQuery.data?.external_ids?.wikidata_id;
   const wikidataQuery = useQuery({
     queryKey: ['wikidata-person', wikidataId],
@@ -200,6 +222,7 @@ export default function PersonScreen() {
     openCredit(entry, creditsForShow(person, entry.mediaType, entry.id), person.name, setSheetEntry);
   const profile = tmdbImageUrl(person.profile_path, 'w342');
   const knownFor = buildKnownFor(person);
+  const socialLinks = buildSocialLinks(person.external_ids);
   const filmography = buildFilmography(person);
   const photos = person.images?.profiles ?? [];
   const wikidata = wikidataQuery.data;
@@ -244,6 +267,20 @@ export default function PersonScreen() {
             </View>
           </View>
 
+          {socialLinks.length > 0 && (
+            <View style={styles.socialRow}>
+              {socialLinks.map((link) => (
+                <Pressable
+                  key={link.key}
+                  onPress={() => Linking.openURL(link.url)}
+                  hitSlop={6}
+                  style={[styles.socialButton, { backgroundColor: theme.backgroundElement }]}>
+                  <Ionicons name={link.icon} size={22} color={theme.text} />
+                </Pressable>
+              ))}
+            </View>
+          )}
+
           {knownFor.length > 0 && (
             <View style={styles.section}>
               <ThemedText type="smallBold">Connu pour</ThemedText>
@@ -267,7 +304,16 @@ export default function PersonScreen() {
             </View>
           )}
 
-          {person.biography ? <Synopsis text={person.biography} /> : null}
+          {frenchBiography ? (
+            <Synopsis text={frenchBiography} />
+          ) : englishBiography ? (
+            <View style={styles.biographyBlock}>
+              <Synopsis text={englishBiography} />
+              <ThemedText type="small" themeColor="textSecondary" style={styles.biographyNote}>
+                Biographie en anglais : aucune version française n'existe.
+              </ThemedText>
+            </View>
+          ) : null}
 
           {photos.length > 1 && (
             <View style={styles.section}>
@@ -373,6 +419,10 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three },
   profile: { width: 110, height: 165, borderRadius: Spacing.two },
   headerText: { flex: 1, justifyContent: 'flex-end', gap: Spacing.half },
+  socialRow: { flexDirection: 'row', gap: Spacing.two, paddingHorizontal: Spacing.three },
+  socialButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  biographyBlock: { gap: Spacing.one },
+  biographyNote: { paddingHorizontal: Spacing.three },
   section: { gap: Spacing.two, paddingHorizontal: Spacing.three },
   row: { gap: Spacing.two, paddingVertical: Spacing.one },
   knownForItem: { width: 100, gap: Spacing.one },
