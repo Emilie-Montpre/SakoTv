@@ -52,7 +52,7 @@ export default function StatsScreen() {
   const handleReset = () => {
     Alert.alert(
       'Réinitialiser les données ?',
-      'Supprime toute la bibliothèque, l\'historique et les échecs d\'import. Irréversible.',
+      'Supprime toute la bibliothèque, l\'historique, les échecs d\'import et les personnes favorites. Irréversible.',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -78,12 +78,27 @@ export default function StatsScreen() {
           {stats && (
             <>
               <View style={styles.tileRow}>
-                <Tile label="Films vus" value={stats.moviesWatched} theme={theme} />
+                <Tile
+                  label="Films vus"
+                  value={stats.moviesWatched}
+                  theme={theme}
+                  onPress={() => router.push('/list/watched-movies')}
+                />
                 <Tile label="Épisodes vus" value={stats.episodesWatched} theme={theme} />
               </View>
               <View style={styles.tileRow}>
-                <Tile label="Dans la bibliothèque" value={stats.showsInLibrary} theme={theme} />
-                <Tile label="Favoris" value={stats.favoritesCount} theme={theme} />
+                <Tile
+                  label="Dans la bibliothèque"
+                  value={stats.showsInLibrary}
+                  theme={theme}
+                  onPress={() => router.push('/(tabs)/library')}
+                />
+                <Tile
+                  label="Favoris"
+                  value={stats.favoritesCount}
+                  theme={theme}
+                  onPress={() => router.push('/list/favorite-titles')}
+                />
               </View>
               <View style={[styles.tileWide, { backgroundColor: theme.backgroundElement }]}>
                 <ThemedText type="small" themeColor="textSecondary">
@@ -91,6 +106,13 @@ export default function StatsScreen() {
                 </ThemedText>
                 <ThemedText type="subtitle">{formatDuration(stats.totalMinutesWatched)}</ThemedText>
               </View>
+
+              <Pressable
+                style={[styles.tileWide, styles.tileWideRow, { backgroundColor: theme.backgroundElement }]}
+                onPress={() => router.push('/list/favorite-people')}>
+                <ThemedText type="smallBold">Personnes favorites ({stats.favoritePeopleCount})</ThemedText>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </Pressable>
 
               <Pressable
                 style={[styles.historyButton, { backgroundColor: theme.backgroundElement }]}
@@ -154,16 +176,26 @@ export default function StatsScreen() {
   );
 }
 
-function Tile({ label, value, theme }: { label: string; value: number; theme: ReturnType<typeof useTheme> }) {
+function Tile({
+  label,
+  value,
+  theme,
+  onPress,
+}: {
+  label: string;
+  value: number;
+  theme: ReturnType<typeof useTheme>;
+  onPress?: () => void;
+}) {
   return (
-    <View style={[styles.tile, { backgroundColor: theme.backgroundElement }]}>
+    <Pressable disabled={!onPress} onPress={onPress} style={[styles.tile, { backgroundColor: theme.backgroundElement }]}>
       <ThemedText type="title" style={styles.tileValue}>
         {value}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {label}
       </ThemedText>
-    </View>
+    </Pressable>
   );
 }
 
@@ -176,6 +208,7 @@ const styles = StyleSheet.create({
   tile: { flex: 1, borderRadius: Spacing.two, padding: Spacing.three, gap: Spacing.half },
   tileValue: { fontSize: 32, lineHeight: 36 },
   tileWide: { borderRadius: Spacing.two, padding: Spacing.three, gap: Spacing.half },
+  tileWideRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   section: { gap: Spacing.two },
   genreRow: { flexDirection: 'row', justifyContent: 'space-between' },
   historyButton: {

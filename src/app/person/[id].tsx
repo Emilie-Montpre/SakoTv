@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -25,6 +25,7 @@ import { Synopsis } from '@/components/synopsis';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { addFavoritePerson, isFavoritePerson, removeFavoritePerson } from '@/repository/favorite-people';
 
 const GROUP_PREVIEW_COUNT = 8;
 
@@ -146,6 +147,30 @@ export default function PersonScreen() {
     queryFn: () => getPersonDetails(personId),
   });
 
+  const queryClient = useQueryClient();
+  const favoriteQuery = useQuery({
+    queryKey: ['favorite-person', personId],
+    queryFn: () => isFavoritePerson(personId),
+  });
+
+  const toggleFavorite = async () => {
+    const data = personQuery.data;
+    if (!data) return;
+    if (favoriteQuery.data) {
+      await removeFavoritePerson(personId);
+    } else {
+      await addFavoritePerson({
+        tmdbPersonId: personId,
+        name: data.name,
+        profilePath: data.profile_path,
+        knownForDepartment: data.known_for_department || null,
+      });
+    }
+    queryClient.invalidateQueries({ queryKey: ['favorite-person', personId] });
+    queryClient.invalidateQueries({ queryKey: ['favorite-people'] });
+    queryClient.invalidateQueries({ queryKey: ['stats'] });
+  };
+
   const wikidataId = personQuery.data?.external_ids?.wikidata_id;
   const wikidataQuery = useQuery({
     queryKey: ['wikidata-person', wikidataId],
@@ -217,6 +242,12 @@ export default function PersonScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
         {backButton}
+        <Pressable
+          onPress={toggleFavorite}
+          style={[styles.floatingIconButton, styles.favoriteButton, { top: insets.top + Spacing.two }]}
+          hitSlop={12}>
+          <Ionicons name={favoriteQuery.data ? 'star' : 'star-outline'} size={20} color="#fff" />
+        </Pressable>
         <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + Spacing.six }]}>
           <View style={styles.headerRow}>
             {profile ? (
@@ -369,6 +400,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(17, 17, 17, 0.45)',
   },
+  favoriteButton: { left: undefined, right: Spacing.three },
   scroll: { paddingBottom: Spacing.six, gap: Spacing.four },
   headerRow: { flexDirection: 'row', gap: Spacing.three, paddingHorizontal: Spacing.three },
   profile: { width: 110, height: 165, borderRadius: Spacing.two },

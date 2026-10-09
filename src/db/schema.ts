@@ -114,3 +114,12 @@ export const watchedEpisodes = sqliteTable(
   },
   (table) => [uniqueIndex('watched_episodes_title_episode_unique').on(table.titleId, table.episodeId)],
 );
+
+export const favoritePeople = sqliteTable('favorite_people', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tmdbPersonId: integer('tmdb_person_id').notNull().unique(),
+  name: text('name').notNull(),
+  profilePath: text('profile_path'),
+  knownForDepartment: text('known_for_department'),
+  addedAt: integer('added_at').notNull().default(sql`(unixepoch() * 1000)`),
+});
