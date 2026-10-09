@@ -37,3 +37,19 @@ export function omdbRatings(data: OmdbResponse) {
     metascore: clean(data.Metascore),
   };
 }
+
+export async function getOmdbEpisodeRating(seriesImdbId: string, seasonNumber: number, episodeNumber: number) {
+  const url = new URL(BASE_URL);
+  url.searchParams.set('apikey', OMDB_API_KEY);
+  url.searchParams.set('i', seriesImdbId);
+  url.searchParams.set('Season', String(seasonNumber));
+  url.searchParams.set('Episode', String(episodeNumber));
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error(`Erreur OMDb (${response.status})`);
+  }
+  const json = (await response.json()) as OmdbResponse;
+  if (json.Response === 'False') return null;
+  return omdbRatings(json).imdb;
+}

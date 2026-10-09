@@ -116,6 +116,44 @@ function sortLanguages(codes: Set<string>) {
   });
 }
 
+export type StreamingEpisodeShow = {
+  seasons?: { title: string; episodes: { streamingOptions?: Record<string, StreamingOption[]> }[] }[];
+};
+
+export async function getShowEpisodesByTmdbId(tmdbId: number, country = 'fr'): Promise<StreamingEpisodeShow> {
+  const url = new URL(`${BASE_URL}/shows/tv/${tmdbId}`);
+  url.searchParams.set('country', country);
+  url.searchParams.set('series_granularity', 'episode');
+
+  const response = await fetch(url.toString(), {
+    headers: { 'X-API-Key': STREAMING_AVAILABILITY_API_KEY },
+  });
+  if (!response.ok) {
+    throw new Error(`Erreur Streaming Availability (${response.status}) sur tv/${tmdbId}`);
+  }
+  return (await response.json()) as StreamingEpisodeShow;
+}
+
+export function summarizeEpisodeLanguages(
+  show: StreamingEpisodeShow,
+  seasonNumber: number,
+  episodeNumber: number,
+  expectedSeasonEpisodeCount: number,
+  country = 'fr',
+) {
+  const season = show.seasons?.find((entry) => entry.title === `Season ${seasonNumber}`);
+  if (!season || season.episodes.length !== expectedSeasonEpisodeCount) return null;
+
+  const options = season.episodes[episodeNumber - 1]?.streamingOptions?.[country] ?? [];
+  const audios = new Set<string>();
+  const subtitles = new Set<string>();
+  for (const option of options) {
+    option.audios?.forEach((audio) => audios.add(audio.language));
+    option.subtitles?.forEach((subtitle) => subtitles.add(subtitle.locale.language));
+  }
+  return { audioLanguages: sortLanguages(audios), subtitleLanguages: sortLanguages(subtitles) };
+}
+
 const TYPE_ORDER: Record<StreamingOptionType, number> = { subscription: 0, free: 1, addon: 2, rent: 3, buy: 4 };
 
 export function summarizeStreaming(show: StreamingShow, country = 'fr'): StreamingSummary {

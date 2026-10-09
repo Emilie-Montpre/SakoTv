@@ -1,7 +1,11 @@
 import { TMDB_API_KEY } from '@/constants/env';
 
 import type {
+  TmdbCreditDetails,
+  TmdbEpisode,
+  TmdbEpisodeCredits,
   TmdbMovieDetails,
+  TmdbPersonDetails,
   TmdbRecommendationsResponse,
   TmdbSearchResponse,
   TmdbSeasonDetails,
@@ -55,6 +59,24 @@ export function getTvDetails(tmdbId: number) {
 
 export function getSeasonDetails(tvId: number, seasonNumber: number) {
   return tmdbFetch<TmdbSeasonDetails>(`/tv/${tvId}/season/${seasonNumber}`);
+}
+
+export function getPersonDetails(personId: number) {
+  return tmdbFetch<TmdbPersonDetails>(`/person/${personId}`, {
+    append_to_response: 'external_ids,combined_credits,images',
+  });
+}
+
+export function getCreditDetails(creditId: string) {
+  return tmdbFetch<TmdbCreditDetails>(`/credit/${creditId}`);
+}
+
+export function getEpisodeEnglish(tvId: number, seasonNumber: number, episodeNumber: number) {
+  return tmdbFetch<TmdbEpisode>(`/tv/${tvId}/season/${seasonNumber}/episode/${episodeNumber}`, { language: 'en-US' });
+}
+
+export function getEpisodeCredits(tvId: number, seasonNumber: number, episodeNumber: number) {
+  return tmdbFetch<TmdbEpisodeCredits>(`/tv/${tvId}/season/${seasonNumber}/episode/${episodeNumber}/credits`);
 }
 
 export function getMovieRecommendations(tmdbId: number) {
