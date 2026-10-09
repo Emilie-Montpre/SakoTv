@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { getOmdbByImdbId, omdbRatings } from '@/api/omdb';
+import { getOmdbByImdbId, getOmdbEpisodeRating, omdbRatings } from '@/api/omdb';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -47,7 +47,7 @@ function MetascoreBadge({ score }: { score: number }) {
   );
 }
 
-function RatingTile({ badge, value, label, width }: { badge: ReactNode; value?: string; label: string; width: number }) {
+function RatingTile({ badge, value, label, width }: { badge: ReactNode; value?: string; label: string; width?: number }) {
   const theme = useTheme();
   return (
     <View style={[styles.tile, { backgroundColor: theme.backgroundElement, width }]}>
@@ -60,6 +60,25 @@ function RatingTile({ badge, value, label, width }: { badge: ReactNode; value?: 
       </View>
     </View>
   );
+}
+
+export function EpisodeImdbRating({
+  seriesImdbId,
+  seasonNumber,
+  episodeNumber,
+}: {
+  seriesImdbId: string | null | undefined;
+  seasonNumber: number;
+  episodeNumber: number;
+}) {
+  const query = useQuery({
+    queryKey: ['omdb-episode-rating', seriesImdbId, seasonNumber, episodeNumber],
+    queryFn: () => getOmdbEpisodeRating(seriesImdbId!, seasonNumber, episodeNumber),
+    enabled: !!seriesImdbId && seasonNumber > 0,
+  });
+
+  if (!query.data) return null;
+  return <RatingTile badge={<ImdbBadge />} value={`${query.data}/10`} label="Note de l'épisode" />;
 }
 
 export function TitleRatings({ imdbId }: { imdbId: string | null | undefined }) {
