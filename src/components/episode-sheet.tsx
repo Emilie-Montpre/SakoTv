@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 import { departmentLabel, jobLabel } from '@/api/person-credits';
 import { getEpisodeCredits, getEpisodeEnglish, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbCastMember, TmdbEpisode, TmdbEpisodeCredits } from '@/api/tmdb-types';
+import { EpisodeFeedback } from '@/components/episode-feedback';
 import { Synopsis } from '@/components/synopsis';
 import { OVERLAY_CONTENT_TOP_PADDING, OverlayPage } from '@/components/overlay-page';
 import { ThemedText } from '@/components/themed-text';
@@ -334,6 +335,8 @@ function EpisodeContent({
           episodeNumber={episode.episodeNumber}
         />
       </View>
+
+      <EpisodeFeedback episodeId={episode.episodeId} watched={episode.watched} />
 
       <EpisodeLanguages
         tmdbId={tvId}

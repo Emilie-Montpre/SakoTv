@@ -123,3 +123,27 @@ export const favoritePeople = sqliteTable('favorite_people', {
   knownForDepartment: text('known_for_department'),
   addedAt: integer('added_at').notNull().default(sql`(unixepoch() * 1000)`),
 });
+
+export const episodeReactions = sqliteTable(
+  'episode_reactions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    episodeId: integer('episode_id')
+      .notNull()
+      .references(() => episodes.id, { onDelete: 'cascade' }),
+    reaction: text('reaction').notNull(),
+    createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [uniqueIndex('episode_reactions_episode_reaction_unique').on(table.episodeId, table.reaction)],
+);
+
+export const episodeNotes = sqliteTable('episode_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id')
+    .notNull()
+    .unique()
+    .references(() => episodes.id, { onDelete: 'cascade' }),
+  rating: integer('rating'),
+  note: text('note'),
+  updatedAt: integer('updated_at').notNull().default(sql`(unixepoch() * 1000)`),
+});

@@ -43,6 +43,13 @@
       "when": 1791568286608,
       "tag": "0005_unknown_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791673020073,
+      "tag": "0006_typical_junta",
+      "breakpoints": true
     }
   ]
 }
