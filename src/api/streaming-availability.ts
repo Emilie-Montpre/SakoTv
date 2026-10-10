@@ -2,6 +2,8 @@ import { STREAMING_AVAILABILITY_API_KEY } from '../constants/env';
 
 const BASE_URL = 'https://api.movieofthenight.com/v4';
 
+const SECONDARY_LINK_PATTERN = /short|special|recap|trailer/i;
+
 export type StreamingOptionType = 'subscription' | 'free' | 'rent' | 'buy' | 'addon';
 
 export type StreamingOption = {
@@ -25,6 +27,7 @@ export type StreamingShow = {
 
 export type StreamingOffer = {
   key: string;
+  serviceId: string;
   serviceName: string;
   type: StreamingOptionType;
   link: string;
@@ -169,9 +172,15 @@ export function summarizeStreaming(show: StreamingShow, country = 'fr'): Streami
     const key = `${option.service.id}:${option.type}`;
     const amount = option.price ? Number(option.price.amount) : 0;
     const existing = offersByKey.get(key);
-    if (existing && existing.amount <= amount) continue;
+    if (existing) {
+      const existingIsSecondary = SECONDARY_LINK_PATTERN.test(existing.link);
+      const optionIsSecondary = SECONDARY_LINK_PATTERN.test(option.link);
+      if (existingIsSecondary === optionIsSecondary && existing.amount <= amount) continue;
+      if (!existingIsSecondary && optionIsSecondary) continue;
+    }
     offersByKey.set(key, {
       key,
+      serviceId: option.service.id,
       serviceName: option.service.name,
       type: option.type,
       link: option.link,

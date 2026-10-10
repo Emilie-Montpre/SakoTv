@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,6 +16,14 @@ import { useTheme } from '@/hooks/use-theme';
 import { listFavoritePeople } from '@/repository/favorite-people';
 import { listFavoriteTitles, listWatchedEpisodesByTitle, listWatchedMovies } from '@/repository/stats-lists';
 
+type CategoryFilter = 'all' | 'series' | 'anime';
+
+const FILTER_LABELS: Record<CategoryFilter, string> = {
+  all: 'Tout',
+  series: 'Séries',
+  anime: 'Animés',
+};
+
 type ListKind = 'watched-movies' | 'watched-episodes' | 'favorite-titles' | 'favorite-people';
 
 interface ListRow {
@@ -25,11 +33,13 @@ interface ListRow {
   imagePath: string | null;
   href: string;
   round: boolean;
+  category?: 'anime' | 'series';
 }
 
 interface ListConfig {
   title: string;
   empty: string;
+  filterable?: boolean;
   load: () => Promise<ListRow[]>;
 }
 
@@ -56,6 +66,7 @@ const CONFIGS: Record<ListKind, ListConfig> = {
   'watched-episodes': {
     title: 'Épisodes vus',
     empty: "Aucun épisode vu pour l'instant.",
+    filterable: true,
     load: async () => {
       const entries = await listWatchedEpisodesByTitle();
       return entries.map((entry) => ({
@@ -67,6 +78,7 @@ const CONFIGS: Record<ListKind, ListConfig> = {
         imagePath: entry.posterPath,
         href: `/title/tv-${entry.tmdbId}`,
         round: false,
+        category: entry.isAnime ? 'anime' : 'series',
       }));
     },
   },
@@ -124,7 +136,9 @@ export default function ListScreen() {
     }, [queryClient, kind]),
   );
 
-  const rows = data ?? [];
+  const [filter, setFilter] = useState<CategoryFilter>('all');
+  const allRows = data ?? [];
+  const rows = filter === 'all' ? allRows : allRows.filter((row) => row.category === filter);
 
   return (
     <>
@@ -139,6 +153,24 @@ export default function ListScreen() {
               {config ? `${config.title}${data ? ` (${rows.length})` : ''}` : 'Liste'}
             </ThemedText>
           </View>
+
+          {config?.filterable && (
+            <View style={styles.filters}>
+              {(Object.keys(FILTER_LABELS) as CategoryFilter[]).map((value) => {
+                const active = filter === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => setFilter(value)}
+                    style={[styles.filterChip, { backgroundColor: active ? theme.text : theme.backgroundElement }]}>
+                    <ThemedText type="small" style={{ color: active ? theme.background : theme.text }}>
+                      {FILTER_LABELS[value]}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
 
           {data && rows.length === 0 && config && (
             <ThemedText themeColor="textSecondary" style={styles.empty}>
@@ -186,6 +218,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.three, gap: Spacing.three },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.two },
+  filters: { flexDirection: 'row', gap: Spacing.two },
+  filterChip: { paddingVertical: Spacing.one + 2, paddingHorizontal: Spacing.three, borderRadius: 999 },
   empty: { textAlign: 'center', marginTop: Spacing.four },
   list: { flex: 1 },
   listContent: { gap: Spacing.two, paddingBottom: Spacing.six },

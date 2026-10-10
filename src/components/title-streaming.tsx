@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ComponentProps } from 'react';
 import { Image } from 'expo-image';
-import { Linking, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import {
   getShowByTmdbId,
@@ -13,12 +13,14 @@ import {
   type StreamingOptionType,
 } from '@/api/streaming-availability';
 import { ThemedText } from '@/components/themed-text';
+import { openStreamingLink } from '@/constants/streaming-apps';
 import { Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 
 type OfferTileData = {
   key: string;
+  serviceId: string;
   serviceName: string;
   logoLight: string | null;
   logoDark: string | null;
@@ -44,6 +46,7 @@ function joinFrench(words: string[]) {
 function toTile(offer: StreamingOffer, lines: string[]): OfferTileData {
   return {
     key: offer.key,
+    serviceId: offer.serviceId,
     serviceName: offer.serviceName,
     logoLight: offer.logoLight,
     logoDark: offer.logoDark,
@@ -79,7 +82,7 @@ function OfferTile({ tile, width }: { tile: OfferTileData; width: number }) {
 
   return (
     <Pressable
-      onPress={() => Linking.openURL(tile.link)}
+      onPress={() => openStreamingLink(tile.serviceId, tile.link)}
       style={[styles.offerTile, { width, backgroundColor: theme.backgroundElement }]}>
       <View style={styles.logoSlot}>
         {showLogo ? (
