@@ -11,7 +11,7 @@ import { Synopsis } from '@/components/synopsis';
 import { OVERLAY_CONTENT_TOP_PADDING, OverlayPage } from '@/components/overlay-page';
 import { ThemedText } from '@/components/themed-text';
 import { EpisodeImdbRating } from '@/components/title-ratings';
-import { EpisodeLanguages } from '@/components/title-streaming';
+import { EpisodeLanguages, EpisodePlatforms } from '@/components/title-streaming';
 import { statusColors } from '@/constants/content';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -336,6 +336,13 @@ function EpisodeContent({
       </View>
 
       <EpisodeLanguages
+        tmdbId={tvId}
+        seasonNumber={episode.seasonNumber}
+        episodeNumber={episode.episodeNumber}
+        seasonEpisodeCount={episode.seasonEpisodeCount}
+      />
+
+      <EpisodePlatforms
         tmdbId={tvId}
         seasonNumber={episode.seasonNumber}
         episodeNumber={episode.episodeNumber}

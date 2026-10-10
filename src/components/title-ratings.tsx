@@ -47,10 +47,22 @@ function MetascoreBadge({ score }: { score: number }) {
   );
 }
 
-function RatingTile({ badge, value, label, width }: { badge: ReactNode; value?: string; label: string; width?: number }) {
+function RatingTile({
+  badge,
+  value,
+  label,
+  width,
+  background,
+}: {
+  badge: ReactNode;
+  value?: string;
+  label: string;
+  width?: number;
+  background?: string;
+}) {
   const theme = useTheme();
   return (
-    <View style={[styles.tile, { backgroundColor: theme.backgroundElement, width }]}>
+    <View style={[styles.tile, { backgroundColor: background ?? theme.backgroundElement, width }]}>
       <View style={styles.badgeSlot}>{badge}</View>
       <View style={styles.tileText}>
         {value ? <ThemedText type="smallBold">{value}</ThemedText> : null}
@@ -71,6 +83,7 @@ export function EpisodeImdbRating({
   seasonNumber: number;
   episodeNumber: number;
 }) {
+  const theme = useTheme();
   const query = useQuery({
     queryKey: ['omdb-episode-rating', seriesImdbId, seasonNumber, episodeNumber],
     queryFn: () => getOmdbEpisodeRating(seriesImdbId!, seasonNumber, episodeNumber),
@@ -78,7 +91,9 @@ export function EpisodeImdbRating({
   });
 
   if (!query.data) return null;
-  return <RatingTile badge={<ImdbBadge />} value={`${query.data}/10`} label="Note de l'épisode" />;
+  return (
+    <RatingTile badge={<ImdbBadge />} value={`${query.data}/10`} label="Note de l'épisode" background={theme.background} />
+  );
 }
 
 export function TitleRatings({ imdbId }: { imdbId: string | null | undefined }) {
