@@ -14,9 +14,9 @@ import { displayStatusLabel, pausedLabel } from '@/constants/content';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { listFavoritePeople } from '@/repository/favorite-people';
-import { listFavoriteTitles, listWatchedMovies } from '@/repository/stats-lists';
+import { listFavoriteTitles, listWatchedEpisodesByTitle, listWatchedMovies } from '@/repository/stats-lists';
 
-type ListKind = 'watched-movies' | 'favorite-titles' | 'favorite-people';
+type ListKind = 'watched-movies' | 'watched-episodes' | 'favorite-titles' | 'favorite-people';
 
 interface ListRow {
   key: string;
@@ -49,6 +49,23 @@ const CONFIGS: Record<ListKind, ListConfig> = {
         subtitle: `Vu le ${formatWatchedDate(movie.watchedAt)}`,
         imagePath: movie.posterPath,
         href: `/title/movie-${movie.tmdbId}`,
+        round: false,
+      }));
+    },
+  },
+  'watched-episodes': {
+    title: 'Épisodes vus',
+    empty: "Aucun épisode vu pour l'instant.",
+    load: async () => {
+      const entries = await listWatchedEpisodesByTitle();
+      return entries.map((entry) => ({
+        key: `episodes-${entry.titleId}`,
+        title: entry.name,
+        subtitle: `${entry.episodesWatched} épisode${entry.episodesWatched > 1 ? 's' : ''} vu${entry.episodesWatched > 1 ? 's' : ''} · ${
+          entry.isAnime ? 'Animé' : 'Série'
+        }`,
+        imagePath: entry.posterPath,
+        href: `/title/tv-${entry.tmdbId}`,
         round: false,
       }));
     },

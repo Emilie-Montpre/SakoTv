@@ -84,7 +84,12 @@ export default function StatsScreen() {
                   theme={theme}
                   onPress={() => router.push('/list/watched-movies')}
                 />
-                <Tile label="Épisodes vus" value={stats.episodesWatched} theme={theme} />
+                <Tile
+                  label="Épisodes vus"
+                  value={stats.episodesWatched}
+                  theme={theme}
+                  onPress={() => router.push('/list/watched-episodes')}
+                />
               </View>
               <View style={styles.tileRow}>
                 <Tile

@@ -107,7 +107,7 @@ Rendre les tuiles de l'écran Stats cliquables pour voir le détail derrière ch
 - [x] **Films vus** → clic → liste des films vus
 - [x] **Favoris** → clic → liste des titres favoris
 - [x] **Dans la bibliothèque** → clic → ouvre l'écran Bibliothèque existant (pas de vue séparée à créer, juste une navigation)
-- [ ] **Épisodes vus** et **Temps de visionnage** → restent non cliquables (pas de changement demandé)
+- [x] **Épisodes vus** → **devenu cliquable le 2026-10-10** (changement de décision) : liste par série ou animé, avec le nombre d'épisodes vus pour chacun, du plus regardé au moins regardé ; un tap ouvre la Fiche. Fait dans [list/[kind].tsx](src/app/list/[kind].tsx) (kind `watched-episodes`). **Temps de visionnage** reste non cliquable.
 - [ ] **Genres favoris** → reste tel quel, non cliquable (confirmé le 2026-08-22)
 - [ ] Ajouter des tuiles **Animés** et **Séries** (comptages), cliquables → liste des animés / séries vus
 - [ ] **Bilan par année** → cliquer sur une année → voir le détail de ce qui a été regardé cette année-là (films vus **et**, pour les épisodes, à quelles séries ils appartiennent — pas juste le total brut d'épisodes de l'année)

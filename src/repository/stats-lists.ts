@@ -1,7 +1,7 @@
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { libraryItems, titles } from '@/db/schema';
+import { libraryItems, titles, watchedEpisodes } from '@/db/schema';
 import type { LibraryStatus, MediaType } from '@/db/schema';
 
 export interface WatchedMovieEntry {
@@ -27,6 +27,35 @@ export async function listWatchedMovies(): Promise<WatchedMovieEntry[]> {
     .orderBy(desc(libraryItems.watchedAt));
 
   return rows.filter((row): row is typeof row & { watchedAt: number } => row.watchedAt != null);
+}
+
+export interface WatchedEpisodesByTitleEntry {
+  titleId: number;
+  tmdbId: number;
+  isAnime: boolean;
+  name: string;
+  posterPath: string | null;
+  episodesWatched: number;
+  lastWatchedAt: number;
+}
+
+export async function listWatchedEpisodesByTitle(): Promise<WatchedEpisodesByTitleEntry[]> {
+  const rows = await db
+    .select({
+      titleId: titles.id,
+      tmdbId: titles.tmdbId,
+      isAnime: titles.isAnime,
+      name: titles.name,
+      posterPath: titles.posterPath,
+      episodesWatched: sql<number>`count(${watchedEpisodes.id})`,
+      lastWatchedAt: sql<number>`max(${watchedEpisodes.watchedAt})`,
+    })
+    .from(watchedEpisodes)
+    .innerJoin(titles, eq(watchedEpisodes.titleId, titles.id))
+    .groupBy(titles.id)
+    .orderBy(desc(sql`count(${watchedEpisodes.id})`), titles.name);
+
+  return rows;
 }
 
 export interface FavoriteTitleEntry {
