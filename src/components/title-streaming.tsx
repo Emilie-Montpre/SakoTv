@@ -12,11 +12,14 @@ import {
   type StreamingOffer,
   type StreamingOptionType,
 } from '@/api/streaming-availability';
+import { getWatchmodeOffers, mergeWatchmodeOffers } from '@/api/watchmode';
 import { ThemedText } from '@/components/themed-text';
 import { openStreamingLink } from '@/constants/streaming-apps';
 import { Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
+
+const STREAMING_STALE_TIME = 24 * 60 * 60 * 1000;
 
 type OfferTileData = {
   key: string;
@@ -126,7 +129,20 @@ function OfferGroup({ title, tiles, width }: { title: string; tiles: OfferTileDa
 function useStreamingSummary(mediaType: 'movie' | 'tv', tmdbId: number) {
   return useQuery({
     queryKey: ['streaming-availability', mediaType, tmdbId],
-    queryFn: async () => summarizeStreaming(await getShowByTmdbId(mediaType, tmdbId, 'fr')),
+    staleTime: STREAMING_STALE_TIME,
+    queryFn: async () => {
+      const [availability, watchmode] = await Promise.allSettled([
+        getShowByTmdbId(mediaType, tmdbId, 'fr'),
+        getWatchmodeOffers(mediaType, tmdbId),
+      ]);
+      if (availability.status === 'rejected' && watchmode.status === 'rejected') throw availability.reason;
+
+      const base =
+        availability.status === 'fulfilled'
+          ? summarizeStreaming(availability.value)
+          : { offers: [], audioLanguages: [], subtitleLanguages: [] };
+      return watchmode.status === 'fulfilled' ? mergeWatchmodeOffers(base, watchmode.value) : base;
+    },
   }).data;
 }
 

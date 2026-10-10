@@ -354,3 +354,24 @@ Remplacer le simple listage prévu pour "À venir" par quelque chose de plus abo
 - [ ] **Séparateur de semaine** : une fine ligne de séparation avant le premier jour de chaque nouvelle semaine (avant chaque lundi) — pas un vrai regroupement/titre "Semaine 1/2/3", juste un repère visuel discret à l'intérieur du mois.
 - Source des dates : `first_air_date`/`release_date` TMDB par épisode/saison à venir, déjà exploitable via l'API existante.
 - Écran déjà créé et sorti de l'Accueil ([upcoming.tsx](src/app/(tabs)/upcoming.tsx), remplace l'ancien onglet Historique dans la barre de navigation) — reste un simple placeholder "Bientôt disponible" en attendant l'implémentation.
+
+## Backlog — Plateformes manquantes dans "Où regarder" : Watchmode en complément
+
+**Décidé le 2026-10-10** après une recherche par agent (voir la conversation) et un test réel avec la clé gratuite. Streaming Availability ne couvre que 11 services en France ; il manque Canal+, ADN, TF1+, M6+, YouTube, Canal VOD, Rakuten TV, Orange VOD, SFR Play, Pathé Home...
+
+- [x] **Watchmode en complément, fait le 2026-10-10** ([watchmode.ts](src/api/watchmode.ts), branché dans [title-streaming.tsx](src/components/title-streaming.tsx)). Streaming Availability reste prioritaire (liens directs fiables, épisodes). Watchmode (`regions=FR`, 44 services testés) n'ajoute que les plateformes **absentes** du résultat de Streaming Availability pour ce titre, sans doublon. Clé gratuite : 2 500 crédits par mois ; une fiche coûte environ 2 crédits (résolution de l'identifiant TMDB + sources), d'où un cache de 24 h côté app.
+  - **Doublons gérés** : les entrées "Amazon Channel" et "(Via ...)" sont ignorées ; une plateforme déjà présente chez Streaming Availability n'est pas rajoutée ; pour une même plateforme et un même type d'offre, on garde la moins chère et on écarte les liens short/special/recap/trailer.
+  - **Limites connues** : Watchmode ne sait pas rediriger vers un épisode précis (ses liens pointent parfois vers un épisode quelconque) ; données parfois incomplètes (ex. Re:Zero sans ADN) ; les liens propres aux applis sont réservés au payant, mais le lien web suffit, Android l'envoie à l'appli. La clé est dans `.env` (`EXPO_PUBLIC_WATCHMODE_API_KEY`, placeholder dans `.env.example`).
+  - [ ] **Si Watchmode laisse trop de trous** : ajouter TMDB `/watch/providers` (liste seule, nom et logo, sans lien) pour compléter ; à décider à l'usage, pas avant.
+  - [x] **Vérifié sur le téléphone le 2026-10-10** : les plateformes ajoutées par Watchmode s'ouvrent bien dans leur appli depuis le lien web. Le seul obstacle rencontré était une appli installée mais en veille (non ouverte depuis longtemps) : l'ouvrir une fois suffit. Les logos viennent de TMDB (Watchmode ne fournit qu'un carré coloré avec le nom), appariés par nom.
+
+## Backlog — Si l'app est un jour partagée ou mise en ligne
+
+Projet personnel aujourd'hui, jamais publié. **Demandé le 2026-10-10** : garder ici la liste de ce qu'il faudra faire le jour où l'app sera partagée.
+
+- [ ] **Citer les sources de données** : Watchmode (mention de la source exigée par le palier gratuit), TMDB (logo TMDB et mention "ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB"), JustWatch si les fournisseurs TMDB sont utilisés. Une ligne discrète en bas des écrans concernés suffit.
+- [ ] **Vérifier les conditions d'usage de chaque API** (Watchmode : non commercial, 3 pays maximum, cache de 30 jours maximum ; TMDB : usage non commercial, cache de 6 mois maximum ; Streaming Availability, OMDb, TheTVDB, MyAnimeList, Jikan) et relire leurs conditions à ce moment-là, car elles changent.
+- [ ] **Clés d'API** : aujourd'hui dans `.env` et exposées dans l'app (`EXPO_PUBLIC_`). Pour une diffusion publique, passer par un petit serveur intermédiaire qui garde les clés, sinon n'importe qui peut les extraire.
+- [ ] **Quotas partagés** : les paliers gratuits (Watchmode 2 500 crédits par mois, OMDb 1 000 par jour, Streaming Availability 1 000 par mois) sont calibrés pour une seule personne ; plusieurs utilisateurs les épuiseraient vite.
+- [ ] **Vie privée** : les données sont locales (SQLite), mais l'export TV Time contient des données personnelles. Prévoir ce que l'app dit et ne dit pas à ce sujet.
+- [ ] **Build natif** : l'app tourne dans Expo Go. Une diffusion demande un vrai build (EAS Build), ce qui débloque aussi des choses impossibles dans Expo Go (par exemple la configuration de la barre de statut dans `app.json`).
