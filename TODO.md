@@ -114,7 +114,7 @@ Rendre les tuiles de l'écran Stats cliquables pour voir le détail derrière ch
 - [x] **Dans la bibliothèque** → clic → ouvre l'écran Bibliothèque existant (pas de vue séparée à créer, juste une navigation)
 - [x] **Épisodes vus** → **devenu cliquable le 2026-10-10** (changement de décision) : liste par série ou animé, avec le nombre d'épisodes vus pour chacun, du plus regardé au moins regardé ; un tap ouvre la Fiche. Fait dans [list/[kind].tsx](src/app/list/[kind].tsx) (kind `watched-episodes`). **Temps de visionnage** reste non cliquable.
 - [ ] **Genres favoris** → reste tel quel, non cliquable (confirmé le 2026-08-22)
-- [ ] Ajouter des tuiles **Animés** et **Séries** (comptages), cliquables → liste des animés / séries vus
+- [x] ~~Ajouter des tuiles **Animés** et **Séries** (comptages), cliquables → liste des animés / séries vus~~ **Abandonné le 2026-10-11** : testé sur téléphone, un simple filtre Tout / Séries / Animés en haut de la liste "Épisodes vus" suffit (fait dans [list/[kind].tsx](src/app/list/[kind].tsx)), pas de tuiles supplémentaires.
 - [ ] **Bilan par année** → cliquer sur une année → voir le détail de ce qui a été regardé cette année-là (films vus **et**, pour les épisodes, à quelles séries ils appartiennent — pas juste le total brut d'épisodes de l'année)
 
 **Note périmée retirée le 2026-08-23** : l'ancien blocage ("stabiliser l'import avant") ne tient plus, l'import est stable — la fonctionnalité elle-même reste voulue telle que décrite ci-dessus.
