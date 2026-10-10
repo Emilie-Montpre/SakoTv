@@ -2,13 +2,6 @@ import { Linking } from 'react-native';
 
 const HOST_SWAP_SCHEMES: Record<string, string> = {
   prime: 'primevideo',
-  hbo: 'hbomax',
-  paramount: 'paramountplus',
-  hulu: 'hulu',
-  peacock: 'peacocktv',
-  starz: 'starz',
-  mubi: 'mubi',
-  youtube: 'vnd.youtube',
 };
 
 const CUSTOM_APP_LINKS: Record<string, (webLink: string) => string | null> = {
