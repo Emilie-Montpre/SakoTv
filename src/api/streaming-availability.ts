@@ -1,6 +1,9 @@
 import { STREAMING_AVAILABILITY_API_KEY } from '../constants/env';
+import { cachedFetch, saveQuota } from './persistent-cache';
 
 const BASE_URL = 'https://api.movieofthenight.com/v4';
+
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type StreamingOptionType = 'subscription' | 'free' | 'rent' | 'buy' | 'addon';
 
@@ -39,17 +42,36 @@ export type StreamingSummary = {
   subtitleLanguages: string[];
 };
 
-export async function getShowByTmdbId(kind: 'movie' | 'tv', tmdbId: number, country = 'fr'): Promise<StreamingShow> {
+async function fetchShow(kind: 'movie' | 'tv', tmdbId: number, country: string, episodes: boolean) {
   const url = new URL(`${BASE_URL}/shows/${kind}/${tmdbId}`);
   url.searchParams.set('country', country);
+  if (episodes) url.searchParams.set('series_granularity', 'episode');
 
   const response = await fetch(url.toString(), {
     headers: { 'X-API-Key': STREAMING_AVAILABILITY_API_KEY },
   });
+  const used = Number(response.headers.get('X-Quota-Used'));
+  const granted = Number(response.headers.get('X-Quota-Granted'));
+  if (response.headers.get('X-Quota-Used') != null && !Number.isNaN(used) && !Number.isNaN(granted)) {
+    void saveQuota('streaming', {
+      used,
+      granted,
+      reset: response.headers.get('X-Quota-Reset'),
+      at: Date.now(),
+    });
+  }
+  if (response.status === 404) return null;
   if (!response.ok) {
     throw new Error(`Erreur Streaming Availability (${response.status}) sur ${kind}/${tmdbId}`);
   }
-  return (await response.json()) as StreamingShow;
+  return await response.json();
+}
+
+export function getShowByTmdbId(kind: 'movie' | 'tv', tmdbId: number, country = 'fr'): Promise<StreamingShow> {
+  return cachedFetch(`streaming:${kind}:${tmdbId}:${country}`, CACHE_MAX_AGE_MS, async () => {
+    const show = (await fetchShow(kind, tmdbId, country, false)) as StreamingShow | null;
+    return show ?? { title: '', streamingOptions: {} };
+  });
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -120,18 +142,11 @@ export type StreamingEpisodeShow = {
   seasons?: { title: string; episodes: { streamingOptions?: Record<string, StreamingOption[]> }[] }[];
 };
 
-export async function getShowEpisodesByTmdbId(tmdbId: number, country = 'fr'): Promise<StreamingEpisodeShow> {
-  const url = new URL(`${BASE_URL}/shows/tv/${tmdbId}`);
-  url.searchParams.set('country', country);
-  url.searchParams.set('series_granularity', 'episode');
-
-  const response = await fetch(url.toString(), {
-    headers: { 'X-API-Key': STREAMING_AVAILABILITY_API_KEY },
+export function getShowEpisodesByTmdbId(tmdbId: number, country = 'fr'): Promise<StreamingEpisodeShow> {
+  return cachedFetch(`streaming-episodes:tv:${tmdbId}:${country}`, CACHE_MAX_AGE_MS, async () => {
+    const show = (await fetchShow('tv', tmdbId, country, true)) as StreamingEpisodeShow | null;
+    return show ?? { seasons: [] };
   });
-  if (!response.ok) {
-    throw new Error(`Erreur Streaming Availability (${response.status}) sur tv/${tmdbId}`);
-  }
-  return (await response.json()) as StreamingEpisodeShow;
 }
 
 export function summarizeEpisodeLanguages(

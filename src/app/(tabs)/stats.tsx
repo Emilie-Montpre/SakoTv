@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { StreamingQuotaCard } from '@/components/streaming-quota-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -133,6 +134,8 @@ export default function StatsScreen() {
               )}
             </>
           )}
+
+          <StreamingQuotaCard />
 
           <Pressable
             disabled={recomputing}
