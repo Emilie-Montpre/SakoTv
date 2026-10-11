@@ -132,6 +132,7 @@ export const episodeReactions = sqliteTable(
       .notNull()
       .references(() => episodes.id, { onDelete: 'cascade' }),
     reaction: text('reaction').notNull(),
+    slot: integer('slot'),
     createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`),
   },
   (table) => [uniqueIndex('episode_reactions_episode_reaction_unique').on(table.episodeId, table.reaction)],

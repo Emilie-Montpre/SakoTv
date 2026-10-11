@@ -8,6 +8,7 @@ import m0003 from './0003_talented_the_initiative.sql';
 import m0004 from './0004_tense_boomer.sql';
 import m0005 from './0005_unknown_obadiah_stane.sql';
 import m0006 from './0006_typical_junta.sql';
+import m0007 from './0007_milky_the_captain.sql';
 
   export default {
     journal,
@@ -18,7 +19,8 @@ m0002,
 m0003,
 m0004,
 m0005,
-m0006
+m0006,
+m0007
     }
   }
   

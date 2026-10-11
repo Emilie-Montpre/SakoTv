@@ -3,18 +3,21 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { episodeNotes, episodeReactions } from '@/db/schema';
 
+export const FEATURED_REACTION_SLOTS = 3;
+
 export interface EpisodeFeedback {
   reactions: string[];
+  featured: string[];
   rating: number | null;
   note: string;
 }
 
 export async function getEpisodeFeedback(episodeId: number): Promise<EpisodeFeedback> {
   const reactionRows = await db
-    .select({ reaction: episodeReactions.reaction })
+    .select({ reaction: episodeReactions.reaction, slot: episodeReactions.slot })
     .from(episodeReactions)
     .where(eq(episodeReactions.episodeId, episodeId))
-    .orderBy(episodeReactions.createdAt);
+    .orderBy(episodeReactions.id);
 
   const [noteRow] = await db
     .select({ rating: episodeNotes.rating, note: episodeNotes.note })
@@ -24,6 +27,10 @@ export async function getEpisodeFeedback(episodeId: number): Promise<EpisodeFeed
 
   return {
     reactions: reactionRows.map((row) => row.reaction),
+    featured: reactionRows
+      .filter((row): row is typeof row & { slot: number } => row.slot != null)
+      .sort((a, b) => a.slot - b.slot)
+      .map((row) => row.reaction),
     rating: noteRow?.rating ?? null,
     note: noteRow?.note ?? '',
   };
@@ -37,7 +44,20 @@ export async function toggleEpisodeReaction(episodeId: number, reaction: string)
     await db.delete(episodeReactions).where(condition);
     return;
   }
-  await db.insert(episodeReactions).values({ episodeId, reaction });
+
+  const usedSlots = await db
+    .select({ slot: episodeReactions.slot })
+    .from(episodeReactions)
+    .where(eq(episodeReactions.episodeId, episodeId));
+  const taken = new Set(usedSlots.map((row) => row.slot));
+  let slot: number | null = null;
+  for (let candidate = 1; candidate <= FEATURED_REACTION_SLOTS; candidate += 1) {
+    if (!taken.has(candidate)) {
+      slot = candidate;
+      break;
+    }
+  }
+  await db.insert(episodeReactions).values({ episodeId, reaction, slot });
 }
 
 export async function setEpisodeRating(episodeId: number, rating: number | null) {
