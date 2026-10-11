@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { TempImportedVotesSeed } from '@/components/temp-imported-votes-seed';
 import { ThemedText } from '@/components/themed-text';
 import { MAX_RATING, REACTIONS } from '@/constants/reactions';
 import { describeTvTimeVote } from '@/constants/tvtime-votes';
@@ -292,8 +291,6 @@ export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; wat
           )}
         </View>
       )}
-
-      <TempImportedVotesSeed episodeId={episodeId} />
     </View>
   );
 }
