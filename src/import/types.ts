@@ -5,6 +5,15 @@ export interface ImportEpisodeWatch {
   rewatchCount: number;
 }
 
+export type ImportVoteKind = 'emotion' | 'rating';
+
+export interface ImportVote {
+  seasonNumber: number;
+  episodeNumber: number;
+  kind: ImportVoteKind;
+  code: number;
+}
+
 export interface ImportShowCandidate {
   kind: 'tv';
   /** Normalized (lowercase, trimmed) name — used as the merge key across source files. */
@@ -20,6 +29,7 @@ export interface ImportShowCandidate {
   /** Earliest known TV Time date (followed_at/created_at) across all source rows — used as the library "added at" date instead of the import date. */
   addedAt: number | null;
   episodeWatches: Map<string, ImportEpisodeWatch>;
+  votes: ImportVote[];
 }
 
 export interface ImportMovieCandidate {
@@ -46,7 +56,7 @@ export function deserializeCandidate(json: string): ImportCandidate {
   const parsed: Record<string, unknown> = JSON.parse(json);
   if (parsed.kind === 'tv') {
     const episodeWatches = parsed.episodeWatches as [string, ImportEpisodeWatch][] | undefined;
-    return { ...parsed, episodeWatches: new Map(episodeWatches ?? []) } as ImportShowCandidate;
+    return { ...parsed, episodeWatches: new Map(episodeWatches ?? []), votes: parsed.votes ?? [] } as ImportShowCandidate;
   }
   return parsed as unknown as ImportMovieCandidate;
 }
@@ -66,6 +76,8 @@ export const CSV_KINDS = [
   'user_show_special_status',
   'user_tv_show_data',
   'followed_tv_show',
+  'emotions-3-prod-episode_votes',
+  'ratings-3-prod-episode_votes',
 ] as const;
 
 export type CsvKind = (typeof CSV_KINDS)[number];

@@ -148,3 +148,16 @@ export const episodeNotes = sqliteTable('episode_notes', {
   note: text('note'),
   updatedAt: integer('updated_at').notNull().default(sql`(unixepoch() * 1000)`),
 });
+
+export const episodeImportedVotes = sqliteTable(
+  'episode_imported_votes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    episodeId: integer('episode_id')
+      .notNull()
+      .references(() => episodes.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<'emotion' | 'rating'>().notNull(),
+    code: integer('code').notNull(),
+  },
+  (table) => [uniqueIndex('episode_imported_votes_unique').on(table.episodeId, table.kind, table.code)],
+);

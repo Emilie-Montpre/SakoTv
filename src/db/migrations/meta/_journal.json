@@ -57,6 +57,13 @@
       "when": 1791675511032,
       "tag": "0007_milky_the_captain",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791678235527,
+      "tag": "0008_shiny_silverclaw",
+      "breakpoints": true
     }
   ]
 }

@@ -3,8 +3,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { TempImportedVotesSeed } from '@/components/temp-imported-votes-seed';
 import { ThemedText } from '@/components/themed-text';
 import { MAX_RATING, REACTIONS } from '@/constants/reactions';
+import { describeTvTimeVote } from '@/constants/tvtime-votes';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -69,9 +71,11 @@ export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; wat
   const { data } = useQuery({ queryKey, queryFn: () => getEpisodeFeedback(episodeId) });
 
   const [openSection, setOpenSection] = useState<Section | null>(null);
+  const [importedOpen, setImportedOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState<string | null>(null);
   const [keepVisible, setKeepVisible] = useState(false);
-  const hasContent = data != null && (data.reactions.length > 0 || data.rating != null || data.note !== '');
+  const hasContent =
+    data != null && (data.reactions.length > 0 || data.rating != null || data.note !== '' || data.imported.length > 0);
 
   useEffect(() => {
     if (hasContent) setKeepVisible(true);
@@ -126,6 +130,8 @@ export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; wat
     .filter((emoji): emoji is string => emoji != null);
   const reactionCount = data.reactions.length;
   const reactionsLabel = reactionCount === 0 ? 'Réagir' : `${reactionCount} émotion${reactionCount > 1 ? 's' : ''}`;
+  const importedReactions = data.imported.filter((vote) => vote.kind === 'emotion');
+  const importedRatings = data.imported.filter((vote) => vote.kind === 'rating');
   const noteLabel = savedNote.trim() === '' ? 'Écrire' : savedNote.trim().split('\n')[0];
 
   return (
@@ -208,6 +214,86 @@ export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; wat
           style={[styles.note, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
         />
       )}
+
+      {data.imported.length > 0 && (
+        <View style={styles.imported}>
+          <Pressable onPress={() => setImportedOpen((open) => !open)} style={styles.importedHeader} hitSlop={6}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Importé de TV Time ({data.imported.length})
+            </ThemedText>
+            <Ionicons name={importedOpen ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textSecondary} />
+          </Pressable>
+          {importedOpen && (
+            <View style={styles.importedList}>
+              {importedReactions.length > 0 && (
+                <View style={styles.importedGroup}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Réactions
+                  </ThemedText>
+                  {importedReactions.map((vote) => {
+                    const description = describeTvTimeVote(vote.kind, vote.code);
+                    return (
+                      <View key={`${vote.kind}-${vote.code}`} style={styles.importedGroup}>
+                        <View style={styles.importedRow}>
+                          <ThemedText style={styles.importedEmoji}>{description.emoji ?? ''}</ThemedText>
+                          <ThemedText>{description.label}</ThemedText>
+                        </View>
+                        {description.emoji == null && description.explanation && (
+                          <ThemedText type="small" themeColor="textSecondary">
+                            {description.explanation}
+                          </ThemedText>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {importedRatings.length > 0 && (
+                <View style={styles.importedGroup}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Notes
+                  </ThemedText>
+                  {importedRatings.map((vote) => {
+                    const description = describeTvTimeVote(vote.kind, vote.code);
+                    return (
+                      <View key={`${vote.kind}-${vote.code}`} style={styles.importedGroup}>
+                        <View style={styles.importedRow}>
+                          <ThemedText>{description.label}</ThemedText>
+                          {description.estimatedStars != null && (
+                            <>
+                              <View style={styles.importedStars}>
+                                {Array.from({ length: description.estimatedStars }, (_, index) => (
+                                  <Ionicons key={index} name="star" size={14} color={STAR_COLOR} />
+                                ))}
+                              </View>
+                              <ThemedText type="small" themeColor="textSecondary">
+                                environ {description.estimatedStars} étoiles
+                              </ThemedText>
+                            </>
+                          )}
+                        </View>
+                        {description.explanation && (
+                          <ThemedText type="small" themeColor="textSecondary">
+                            {description.explanation}
+                          </ThemedText>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              <ThemedText type="small" themeColor="textSecondary" style={styles.importedFootnote}>
+                Anciens avis de TV Time, gardés tels quels. Les étoiles indiquées sont une estimation et ne sont pas
+                reliées à tes étoiles actuelles.
+              </ThemedText>
+            </View>
+          )}
+        </View>
+      )}
+
+      <TempImportedVotesSeed episodeId={episodeId} />
     </View>
   );
 }
@@ -215,6 +301,14 @@ export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; wat
 const styles = StyleSheet.create({
   container: { gap: Spacing.two },
   buttons: { flexDirection: 'row', gap: Spacing.two },
+  imported: { gap: Spacing.one },
+  importedHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.one },
+  importedList: { gap: Spacing.two },
+  importedGroup: { gap: Spacing.half },
+  importedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  importedEmoji: { fontSize: 18, lineHeight: 24, width: 26 },
+  importedStars: { flexDirection: 'row', gap: 2 },
+  importedFootnote: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.two },
   sectionButton: {
     flex: 1,
     alignItems: 'center',

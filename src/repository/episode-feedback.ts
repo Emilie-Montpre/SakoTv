@@ -1,11 +1,17 @@
 import { and, eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { episodeNotes, episodeReactions } from '@/db/schema';
+import { episodeImportedVotes, episodeNotes, episodeReactions } from '@/db/schema';
 
 export const FEATURED_REACTION_SLOTS = 3;
 
+export interface ImportedVote {
+  kind: 'emotion' | 'rating';
+  code: number;
+}
+
 export interface EpisodeFeedback {
+  imported: ImportedVote[];
   reactions: string[];
   featured: string[];
   rating: number | null;
@@ -25,7 +31,14 @@ export async function getEpisodeFeedback(episodeId: number): Promise<EpisodeFeed
     .where(eq(episodeNotes.episodeId, episodeId))
     .limit(1);
 
+  const importedRows = await db
+    .select({ kind: episodeImportedVotes.kind, code: episodeImportedVotes.code })
+    .from(episodeImportedVotes)
+    .where(eq(episodeImportedVotes.episodeId, episodeId))
+    .orderBy(episodeImportedVotes.id);
+
   return {
+    imported: importedRows,
     reactions: reactionRows.map((row) => row.reaction),
     featured: reactionRows
       .filter((row): row is typeof row & { slot: number } => row.slot != null)

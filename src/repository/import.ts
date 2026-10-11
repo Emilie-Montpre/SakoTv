@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { episodes, libraryItems, seasons, watchedEpisodes } from '@/db/schema';
+import { episodeImportedVotes, episodes, libraryItems, seasons, watchedEpisodes } from '@/db/schema';
 import type { ImportMovieCandidate, ImportShowCandidate } from '@/import/types';
 
 import { addToLibrary, maybeCompleteShow, setFavorite, upsertTitleFromTmdb } from './library';
@@ -42,6 +42,21 @@ export async function importShow(tmdbId: number, candidate: ImportShowCandidate)
         .values({ titleId, episodeId: episode.id, watchedAt: watch.watchedAt, rewatchCount: watch.rewatchCount });
     }
     matchedEpisodes++;
+  }
+
+  for (const vote of candidate.votes ?? []) {
+    const season = await db.query.seasons.findFirst({
+      where: and(eq(seasons.titleId, titleId), eq(seasons.seasonNumber, vote.seasonNumber)),
+    });
+    if (!season) continue;
+    const episode = await db.query.episodes.findFirst({
+      where: and(eq(episodes.seasonId, season.id), eq(episodes.episodeNumber, vote.episodeNumber)),
+    });
+    if (!episode) continue;
+    await db
+      .insert(episodeImportedVotes)
+      .values({ episodeId: episode.id, kind: vote.kind, code: vote.code })
+      .onConflictDoNothing();
   }
 
   await maybeCompleteShow(titleId);
