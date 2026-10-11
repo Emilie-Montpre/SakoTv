@@ -234,6 +234,8 @@ export default function PersonScreen() {
         person.deathday ? ` - ${formatPersonDate(person.deathday)}` : ` (${ageFrom(person.birthday, null)} ans)`
       }`
     : null;
+  const deathLine =
+    person.birthday && person.deathday ? `Décédé à l'âge de ${ageFrom(person.birthday, person.deathday)} ans` : null;
   const heightLine = wikidata?.heightMeters ? `${wikidata.heightMeters.toFixed(2).replace('.', ',')} m` : null;
   const hasWikidataDetails = !!wikidata && (wikidata.family.length > 0 || wikidata.awards.length > 0);
 
@@ -260,6 +262,11 @@ export default function PersonScreen() {
               {birthLine && (
                 <ThemedText type="small" themeColor="textSecondary">
                   {birthLine}
+                </ThemedText>
+              )}
+              {deathLine && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {deathLine}
                 </ThemedText>
               )}
               {person.place_of_birth && (
