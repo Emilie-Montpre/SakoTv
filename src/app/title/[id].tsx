@@ -12,6 +12,7 @@ import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-type
 import { AddToListSheet } from '@/components/add-to-list-sheet';
 import { CastSheet } from '@/components/cast-sheet';
 import { EpisodeSheet, type EpisodeSheetData } from '@/components/episode-sheet';
+import { TitleFeedback } from '@/components/episode-feedback';
 import { Synopsis } from '@/components/synopsis';
 import { ThemedText } from '@/components/themed-text';
 import { TitleRatings } from '@/components/title-ratings';
@@ -735,6 +736,16 @@ export default function TitleDetailScreen() {
                 </Pressable>
               );
             })}
+          </View>
+        )}
+
+        {titleId != null && !resolveFailureId && local?.status != null && (
+          <View style={styles.section}>
+            <TitleFeedback
+              titleId={titleId}
+              watched={local.status !== 'to_watch'}
+              heading={mediaType === 'movie' ? 'Mon avis sur ce film' : 'Mon avis sur cette série'}
+            />
           </View>
         )}
 

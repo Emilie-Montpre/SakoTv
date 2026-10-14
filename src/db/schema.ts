@@ -182,3 +182,28 @@ export const customListItems = sqliteTable(
   },
   (table) => [uniqueIndex('custom_list_items_list_title_unique').on(table.listId, table.titleId)],
 );
+
+export const titleReactions = sqliteTable(
+  'title_reactions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    titleId: integer('title_id')
+      .notNull()
+      .references(() => titles.id, { onDelete: 'cascade' }),
+    reaction: text('reaction').notNull(),
+    slot: integer('slot'),
+    createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [uniqueIndex('title_reactions_title_reaction_unique').on(table.titleId, table.reaction)],
+);
+
+export const titleNotes = sqliteTable('title_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  titleId: integer('title_id')
+    .notNull()
+    .unique()
+    .references(() => titles.id, { onDelete: 'cascade' }),
+  rating: integer('rating'),
+  note: text('note'),
+  updatedAt: integer('updated_at').notNull().default(sql`(unixepoch() * 1000)`),
+});

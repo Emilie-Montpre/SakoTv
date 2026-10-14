@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type ComponentProps } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -13,7 +13,14 @@ import {
   setEpisodeNote,
   setEpisodeRating,
   toggleEpisodeReaction,
+  type EpisodeFeedback,
 } from '@/repository/episode-feedback';
+import {
+  getTitleFeedback,
+  setTitleNote,
+  setTitleRating,
+  toggleTitleReaction,
+} from '@/repository/title-feedback';
 
 const NOTE_SAVE_DELAY_MS = 600;
 const STAR_COLOR = '#F5A524';
@@ -63,11 +70,63 @@ function SectionButton({
   );
 }
 
+export type FeedbackAdapter = {
+  key: (string | number)[];
+  load: () => Promise<EpisodeFeedback>;
+  toggleReaction: (code: string) => Promise<void>;
+  setRating: (value: number | null) => Promise<void>;
+  setNote: (text: string) => Promise<void>;
+};
+
 export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; watched: boolean }) {
+  const adapter = useMemo<FeedbackAdapter>(
+    () => ({
+      key: ['episode-feedback', episodeId],
+      load: () => getEpisodeFeedback(episodeId),
+      toggleReaction: (code) => toggleEpisodeReaction(episodeId, code),
+      setRating: (value) => setEpisodeRating(episodeId, value),
+      setNote: (text) => setEpisodeNote(episodeId, text),
+    }),
+    [episodeId],
+  );
+  return <FeedbackBlock adapter={adapter} watched={watched} />;
+}
+
+export function TitleFeedback({
+  titleId,
+  watched,
+  heading,
+}: {
+  titleId: number;
+  watched: boolean;
+  heading: string;
+}) {
+  const adapter = useMemo<FeedbackAdapter>(
+    () => ({
+      key: ['title-feedback', titleId],
+      load: () => getTitleFeedback(titleId),
+      toggleReaction: (code) => toggleTitleReaction(titleId, code),
+      setRating: (value) => setTitleRating(titleId, value),
+      setNote: (text) => setTitleNote(titleId, text),
+    }),
+    [titleId],
+  );
+  return <FeedbackBlock adapter={adapter} watched={watched} heading={heading} />;
+}
+
+function FeedbackBlock({
+  adapter,
+  watched,
+  heading = 'Mon avis',
+}: {
+  adapter: FeedbackAdapter;
+  watched: boolean;
+  heading?: string;
+}) {
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const queryKey = ['episode-feedback', episodeId];
-  const { data } = useQuery({ queryKey, queryFn: () => getEpisodeFeedback(episodeId) });
+  const queryKey = adapter.key;
+  const { data } = useQuery({ queryKey, queryFn: adapter.load });
 
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [importedOpen, setImportedOpen] = useState(false);
@@ -88,7 +147,7 @@ export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; wat
 
   const saveNote = async (text: string) => {
     pendingNote.current = null;
-    await setEpisodeNote(episodeId, text);
+    await adapter.setNote(text);
     await refresh();
   };
 
@@ -102,9 +161,7 @@ export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; wat
   useEffect(
     () => () => {
       if (pendingNote.current != null) {
-        setEpisodeNote(episodeId, pendingNote.current).then(() =>
-          queryClient.invalidateQueries({ queryKey: ['episode-feedback', episodeId] }),
-        );
+        adapter.setNote(pendingNote.current).then(() => queryClient.invalidateQueries({ queryKey: adapter.key }));
       }
     },
     [],
@@ -115,12 +172,12 @@ export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; wat
   const toggleSection = (section: Section) => setOpenSection((current) => (current === section ? null : section));
 
   const handleToggleReaction = async (code: string) => {
-    await toggleEpisodeReaction(episodeId, code);
+    await adapter.toggleReaction(code);
     await refresh();
   };
 
   const handleRating = async (value: number) => {
-    await setEpisodeRating(episodeId, data.rating === value ? null : value);
+    await adapter.setRating(data.rating === value ? null : value);
     await refresh();
   };
 
@@ -135,7 +192,7 @@ export function EpisodeFeedback({ episodeId, watched }: { episodeId: number; wat
 
   return (
     <View style={styles.container}>
-      <ThemedText type="smallBold">Mon avis</ThemedText>
+      <ThemedText type="smallBold">{heading}</ThemedText>
 
       <View style={styles.buttons}>
         <SectionButton
