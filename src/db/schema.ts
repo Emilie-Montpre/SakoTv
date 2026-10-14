@@ -114,3 +114,96 @@ export const watchedEpisodes = sqliteTable(
   },
   (table) => [uniqueIndex('watched_episodes_title_episode_unique').on(table.titleId, table.episodeId)],
 );
+
+export const favoritePeople = sqliteTable('favorite_people', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tmdbPersonId: integer('tmdb_person_id').notNull().unique(),
+  name: text('name').notNull(),
+  profilePath: text('profile_path'),
+  knownForDepartment: text('known_for_department'),
+  addedAt: integer('added_at').notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const episodeReactions = sqliteTable(
+  'episode_reactions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    episodeId: integer('episode_id')
+      .notNull()
+      .references(() => episodes.id, { onDelete: 'cascade' }),
+    reaction: text('reaction').notNull(),
+    slot: integer('slot'),
+    createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [uniqueIndex('episode_reactions_episode_reaction_unique').on(table.episodeId, table.reaction)],
+);
+
+export const episodeNotes = sqliteTable('episode_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  episodeId: integer('episode_id')
+    .notNull()
+    .unique()
+    .references(() => episodes.id, { onDelete: 'cascade' }),
+  rating: integer('rating'),
+  note: text('note'),
+  updatedAt: integer('updated_at').notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const episodeImportedVotes = sqliteTable(
+  'episode_imported_votes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    episodeId: integer('episode_id')
+      .notNull()
+      .references(() => episodes.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<'emotion' | 'rating'>().notNull(),
+    code: integer('code').notNull(),
+  },
+  (table) => [uniqueIndex('episode_imported_votes_unique').on(table.episodeId, table.kind, table.code)],
+);
+
+export const customLists = sqliteTable('custom_lists', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const customListItems = sqliteTable(
+  'custom_list_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    listId: integer('list_id')
+      .notNull()
+      .references(() => customLists.id, { onDelete: 'cascade' }),
+    titleId: integer('title_id')
+      .notNull()
+      .references(() => titles.id, { onDelete: 'cascade' }),
+    addedAt: integer('added_at').notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [uniqueIndex('custom_list_items_list_title_unique').on(table.listId, table.titleId)],
+);
+
+export const titleReactions = sqliteTable(
+  'title_reactions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    titleId: integer('title_id')
+      .notNull()
+      .references(() => titles.id, { onDelete: 'cascade' }),
+    reaction: text('reaction').notNull(),
+    slot: integer('slot'),
+    createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [uniqueIndex('title_reactions_title_reaction_unique').on(table.titleId, table.reaction)],
+);
+
+export const titleNotes = sqliteTable('title_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  titleId: integer('title_id')
+    .notNull()
+    .unique()
+    .references(() => titles.id, { onDelete: 'cascade' }),
+  rating: integer('rating'),
+  note: text('note'),
+  updatedAt: integer('updated_at').notNull().default(sql`(unixepoch() * 1000)`),
+});

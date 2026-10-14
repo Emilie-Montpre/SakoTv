@@ -1,5 +1,12 @@
 import { normalizeName, parseBool, parseIntOr, parseIntOrNull, parseTimestamp } from './parse-helpers';
-import type { ImportCandidate, ImportEpisodeWatch, ImportMovieCandidate, ImportShowCandidate, ParsedCsvFile } from './types';
+import type {
+  ImportCandidate,
+  ImportEpisodeWatch,
+  ImportMovieCandidate,
+  ImportShowCandidate,
+  ImportVoteKind,
+  ParsedCsvFile,
+} from './types';
 
 export interface ExtractStats {
   /** Rows that referenced a show/movie but had no usable name — can't be matched to anything. */
@@ -35,6 +42,7 @@ function getOrCreateShow(
       specialStatus: null,
       addedAt: null,
       episodeWatches: new Map(),
+      votes: [],
     };
     map.set(key, show);
   }
@@ -197,6 +205,27 @@ function processFollowedTvShow(rows: Record<string, string>[], shows: Map<string
   }
 }
 
+function processEpisodeVotes(
+  rows: Record<string, string>[],
+  kind: ImportVoteKind,
+  shows: Map<string, ImportShowCandidate>,
+  stats: ExtractStats,
+) {
+  for (const row of rows) {
+    const show = getOrCreateShow(shows, row.series_name, stats);
+    if (!show) continue;
+    const seasonNumber = parseIntOrNull(row.season_number);
+    const episodeNumber = parseIntOrNull(row.episode_number);
+    const code = parseIntOrNull((row.vote_key ?? '').split('-').pop());
+    if (seasonNumber == null || episodeNumber == null || code == null) continue;
+    const alreadyKnown = show.votes.some(
+      (vote) =>
+        vote.kind === kind && vote.code === code && vote.seasonNumber === seasonNumber && vote.episodeNumber === episodeNumber,
+    );
+    if (!alreadyKnown) show.votes.push({ seasonNumber, episodeNumber, kind, code });
+  }
+}
+
 export function extractCandidates(files: ParsedCsvFile[]): ExtractResult {
   const shows = new Map<string, ImportShowCandidate>();
   const movies = new Map<string, ImportMovieCandidate>();
@@ -227,6 +256,12 @@ export function extractCandidates(files: ParsedCsvFile[]): ExtractResult {
         break;
       case 'followed_tv_show':
         processFollowedTvShow(file.rows, shows, stats);
+        break;
+      case 'emotions-3-prod-episode_votes':
+        processEpisodeVotes(file.rows, 'emotion', shows, stats);
+        break;
+      case 'ratings-3-prod-episode_votes':
+        processEpisodeVotes(file.rows, 'rating', shows, stats);
         break;
       default:
         break;

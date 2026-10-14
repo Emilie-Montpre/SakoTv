@@ -218,9 +218,12 @@ export function formatPersonDate(date: string) {
 
 export function ageFrom(birthday: string, deathday: string | null) {
   const [year, month, day] = birthday.split('-').map(Number);
-  const end = deathday ? new Date(deathday) : new Date();
-  let age = end.getFullYear() - year;
-  if (end.getMonth() + 1 < month || (end.getMonth() + 1 === month && end.getDate() < day)) age -= 1;
+  const today = new Date();
+  const [endYear, endMonth, endDay] = deathday
+    ? deathday.split('-').map(Number)
+    : [today.getFullYear(), today.getMonth() + 1, today.getDate()];
+  let age = endYear - year;
+  if (endMonth < month || (endMonth === month && endDay < day)) age -= 1;
   return age;
 }
 

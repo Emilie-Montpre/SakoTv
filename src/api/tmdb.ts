@@ -37,6 +37,16 @@ export function tmdbImageUrl(path: string | null, size: 'w185' | 'w342' | 'w500'
   return `${IMAGE_BASE_URL}/${size}${path}`;
 }
 
+export type TmdbWatchProvider = { provider_name: string; logo_path: string | null };
+
+export async function getWatchProviderLogos(region = 'FR') {
+  const [tv, movie] = await Promise.all([
+    tmdbFetch<{ results: TmdbWatchProvider[] }>('/watch/providers/tv', { watch_region: region }),
+    tmdbFetch<{ results: TmdbWatchProvider[] }>('/watch/providers/movie', { watch_region: region }),
+  ]);
+  return [...tv.results, ...movie.results];
+}
+
 export function searchMulti(query: string) {
   return tmdbFetch<TmdbSearchResponse>('/search/multi', { query });
 }

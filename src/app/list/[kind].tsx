@@ -1,0 +1,334 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { departmentLabel } from '@/api/person-credits';
+import { tmdbImageUrl } from '@/api/tmdb';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { displayStatusLabel, pausedLabel } from '@/constants/content';
+import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { listFavoritePeople } from '@/repository/favorite-people';
+import {
+  listFavoriteTitles,
+  listWatchedEpisodesByTitle,
+  listWatchedMovies,
+  listYearRecap,
+} from '@/repository/stats-lists';
+import {
+  getCustomListName,
+  listCustomListTitles,
+  removeTitleFromList,
+} from '@/repository/custom-lists';
+
+type CategoryFilter = 'all' | 'series' | 'anime';
+
+const FILTER_LABELS: Record<CategoryFilter, string> = {
+  all: 'Tout',
+  series: 'Séries',
+  anime: 'Animés',
+};
+
+type ListKind = 'watched-movies' | 'watched-episodes' | 'favorite-titles' | 'favorite-people';
+
+interface ListRow {
+  key: string;
+  title: string;
+  subtitle: string;
+  imagePath: string | null;
+  href: string;
+  round: boolean;
+  category?: 'anime' | 'series';
+  movie?: boolean;
+  episodeCount?: number;
+  removeFromList?: () => Promise<void>;
+}
+
+interface ListConfig {
+  title: string;
+  empty: string;
+  filterable?: boolean;
+  summarize?: (rows: ListRow[]) => string;
+  loadTitle?: () => Promise<string>;
+  load: () => Promise<ListRow[]>;
+}
+
+function formatWatchedDate(timestamp: number) {
+  return new Date(timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+const CONFIGS: Record<ListKind, ListConfig> = {
+  'watched-movies': {
+    title: 'Films vus',
+    empty: "Aucun film vu pour l'instant.",
+    load: async () => {
+      const movies = await listWatchedMovies();
+      return movies.map((movie) => ({
+        key: `movie-${movie.titleId}`,
+        title: movie.name,
+        subtitle: `Vu le ${formatWatchedDate(movie.watchedAt)}`,
+        imagePath: movie.posterPath,
+        href: `/title/movie-${movie.tmdbId}`,
+        round: false,
+      }));
+    },
+  },
+  'watched-episodes': {
+    title: 'Épisodes vus',
+    empty: "Aucun épisode vu pour l'instant.",
+    filterable: true,
+    load: async () => {
+      const entries = await listWatchedEpisodesByTitle();
+      return entries.map((entry) => ({
+        key: `episodes-${entry.titleId}`,
+        title: entry.name,
+        subtitle: `${entry.episodesWatched} épisode${entry.episodesWatched > 1 ? 's' : ''} vu${entry.episodesWatched > 1 ? 's' : ''} · ${
+          entry.isAnime ? 'Animé' : 'Série'
+        }`,
+        imagePath: entry.posterPath,
+        href: `/title/tv-${entry.tmdbId}`,
+        round: false,
+        category: entry.isAnime ? 'anime' : 'series',
+      }));
+    },
+  },
+  'favorite-titles': {
+    title: 'Favoris',
+    empty: "Aucun titre favori pour l'instant.",
+    load: async () => {
+      const titles = await listFavoriteTitles();
+      return titles.map((title) => ({
+        key: `title-${title.titleId}`,
+        title: title.name,
+        subtitle: title.manuallyPaused ? pausedLabel : displayStatusLabel(title.status, title.mediaType, title.statusTmdb),
+        imagePath: title.posterPath,
+        href: `/title/${title.mediaType}-${title.tmdbId}`,
+        round: false,
+      }));
+    },
+  },
+  'favorite-people': {
+    title: 'Personnes favorites',
+    empty: "Aucune personne favorite pour l'instant.",
+    load: async () => {
+      const people = await listFavoritePeople();
+      return people.map((person) => ({
+        key: `person-${person.tmdbPersonId}`,
+        title: person.name,
+        subtitle: person.knownForDepartment ? departmentLabel(person.knownForDepartment) : '',
+        imagePath: person.profilePath,
+        href: `/person/${person.tmdbPersonId}`,
+        round: true,
+      }));
+    },
+  },
+};
+
+const YEAR_KIND_PATTERN = /^year-(\d{4})$/;
+
+function pluralize(count: number, singular: string, plural: string) {
+  return `${count} ${count > 1 ? plural : singular}`;
+}
+
+function buildYearConfig(year: number): ListConfig {
+  return {
+    title: `Bilan ${year}`,
+    empty: `Rien de regardé en ${year}.`,
+    summarize: (rows) => {
+      const movieCount = rows.filter((row) => row.movie).length;
+      const episodeCount = rows.reduce((sum, row) => sum + (row.movie ? 0 : (row.episodeCount ?? 0)), 0);
+      return `${pluralize(movieCount, 'film', 'films')} · ${pluralize(episodeCount, 'épisode', 'épisodes')}`;
+    },
+    load: async () => {
+      const entries = await listYearRecap(year);
+      return entries.map((entry) => ({
+        key: `${entry.mediaType}-${entry.titleId}`,
+        title: entry.name,
+        subtitle:
+          entry.mediaType === 'movie'
+            ? `Film · vu le ${formatWatchedDate(entry.lastWatchedAt)}`
+            : `${pluralize(entry.count, 'épisode vu', 'épisodes vus')} · ${entry.isAnime ? 'Animé' : 'Série'}`,
+        imagePath: entry.posterPath,
+        href: `/title/${entry.mediaType}-${entry.tmdbId}`,
+        round: false,
+        movie: entry.mediaType === 'movie',
+        episodeCount: entry.mediaType === 'tv' ? entry.count : undefined,
+      }));
+    },
+  };
+}
+
+const CUSTOM_KIND_PATTERN = /^custom-(\d+)$/;
+
+function buildCustomListConfig(listId: number): ListConfig {
+  return {
+    title: 'Liste',
+    empty: "Cette liste est vide. Ajoute-y des titres depuis leur fiche, avec le menu en haut à droite.",
+    loadTitle: () => getCustomListName(listId),
+    load: async () => {
+      const entries = await listCustomListTitles(listId);
+      return entries.map((entry) => ({
+        key: `title-${entry.titleId}`,
+        title: entry.name,
+        subtitle: entry.mediaType === 'movie' ? 'Film' : entry.isAnime ? 'Animé' : 'Série',
+        imagePath: entry.posterPath,
+        href: `/title/${entry.mediaType}-${entry.tmdbId}`,
+        round: false,
+        removeFromList: () => removeTitleFromList(listId, entry.titleId),
+      }));
+    },
+  };
+}
+
+function resolveConfig(kind: string | undefined): ListConfig | null {
+  if (kind == null) return null;
+  if (kind in CONFIGS) return CONFIGS[kind as ListKind];
+  const customMatch = kind.match(CUSTOM_KIND_PATTERN);
+  if (customMatch) return buildCustomListConfig(Number(customMatch[1]));
+  const yearMatch = kind.match(YEAR_KIND_PATTERN);
+  return yearMatch ? buildYearConfig(Number(yearMatch[1])) : null;
+}
+
+export default function ListScreen() {
+  const { kind } = useLocalSearchParams<{ kind: string }>();
+  const theme = useTheme();
+  const queryClient = useQueryClient();
+  const config = useMemo(() => resolveConfig(kind), [kind]);
+
+  const { data } = useQuery({
+    queryKey: ['stats-list', kind],
+    queryFn: () => config!.load(),
+    enabled: config != null,
+  });
+
+  const { data: dynamicTitle } = useQuery({
+    queryKey: ['stats-list-title', kind],
+    queryFn: () => config!.loadTitle!(),
+    enabled: config?.loadTitle != null,
+  });
+
+  const confirmRemove = (row: ListRow) => {
+    if (!row.removeFromList) return;
+    Alert.alert(`Retirer "${row.title}" de la liste ?`, undefined, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Retirer',
+        style: 'destructive',
+        onPress: async () => {
+          await row.removeFromList!();
+          queryClient.invalidateQueries({ queryKey: ['stats-list', kind] });
+          queryClient.invalidateQueries({ queryKey: ['custom-lists'] });
+        },
+      },
+    ]);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['stats-list', kind] });
+      queryClient.invalidateQueries({ queryKey: ['stats-list-title', kind] });
+    }, [queryClient, kind]),
+  );
+
+  const [filter, setFilter] = useState<CategoryFilter>('all');
+  const allRows = data ?? [];
+  const rows = filter === 'all' ? allRows : allRows.filter((row) => row.category === filter);
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <View style={styles.header}>
+            <Pressable onPress={() => router.back()} hitSlop={12}>
+              <Ionicons name="chevron-back" size={24} color={theme.text} />
+            </Pressable>
+            <ThemedText type="subtitle">
+              {config ? `${dynamicTitle ?? config.title}${data && !config.summarize ? ` (${rows.length})` : ''}` : 'Liste'}
+            </ThemedText>
+          </View>
+
+          {config?.summarize && data && (
+            <ThemedText themeColor="textSecondary">{config.summarize(rows)}</ThemedText>
+          )}
+
+          {config?.filterable && (
+            <View style={styles.filters}>
+              {(Object.keys(FILTER_LABELS) as CategoryFilter[]).map((value) => {
+                const active = filter === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => setFilter(value)}
+                    style={[styles.filterChip, { backgroundColor: active ? theme.text : theme.backgroundElement }]}>
+                    <ThemedText type="small" style={{ color: active ? theme.background : theme.text }}>
+                      {FILTER_LABELS[value]}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
+          {data && rows.length === 0 && config && (
+            <ThemedText themeColor="textSecondary" style={styles.empty}>
+              {config.empty}
+            </ThemedText>
+          )}
+
+          <FlatList
+            style={styles.list}
+            data={rows}
+            keyExtractor={(item) => item.key}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item }) => {
+              const image = tmdbImageUrl(item.imagePath, 'w185');
+              const imageStyle = item.round ? styles.photo : styles.poster;
+              return (
+                <Pressable
+                  style={[styles.row, { backgroundColor: theme.backgroundElement }]}
+                  onPress={() => router.push(item.href as never)}
+                  onLongPress={item.removeFromList ? () => confirmRemove(item) : undefined}>
+                  {image ? (
+                    <Image source={{ uri: image }} style={imageStyle} contentFit="cover" />
+                  ) : (
+                    <View style={[imageStyle, { backgroundColor: theme.backgroundSelected }]} />
+                  )}
+                  <View style={styles.rowText}>
+                    <ThemedText numberOfLines={2}>{item.title}</ThemedText>
+                    {item.subtitle ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {item.subtitle}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+                </Pressable>
+              );
+            }}
+          />
+        </SafeAreaView>
+      </ThemedView>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  safeArea: { flex: 1, paddingHorizontal: Spacing.three, gap: Spacing.three },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.two },
+  filters: { flexDirection: 'row', gap: Spacing.two },
+  filterChip: { paddingVertical: Spacing.one + 2, paddingHorizontal: Spacing.three, borderRadius: 999 },
+  empty: { textAlign: 'center', marginTop: Spacing.four },
+  list: { flex: 1 },
+  listContent: { gap: Spacing.two, paddingBottom: Spacing.six },
+  row: { flexDirection: 'row', gap: Spacing.three, borderRadius: Spacing.two, padding: Spacing.two, alignItems: 'center' },
+  poster: { width: 48, height: 72, borderRadius: Spacing.one },
+  photo: { width: 56, height: 56, borderRadius: 28 },
+  rowText: { flex: 1, gap: Spacing.half },
+});

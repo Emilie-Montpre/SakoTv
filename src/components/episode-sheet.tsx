@@ -7,11 +7,12 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 import { departmentLabel, jobLabel } from '@/api/person-credits';
 import { getEpisodeCredits, getEpisodeEnglish, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbCastMember, TmdbEpisode, TmdbEpisodeCredits } from '@/api/tmdb-types';
+import { EpisodeFeedback } from '@/components/episode-feedback';
 import { Synopsis } from '@/components/synopsis';
 import { OVERLAY_CONTENT_TOP_PADDING, OverlayPage } from '@/components/overlay-page';
 import { ThemedText } from '@/components/themed-text';
 import { EpisodeImdbRating } from '@/components/title-ratings';
-import { EpisodeLanguages } from '@/components/title-streaming';
+import { EpisodeLanguages, EpisodePlatforms } from '@/components/title-streaming';
 import { statusColors } from '@/constants/content';
 import { castTitle } from '@/constants/languages';
 import { Spacing } from '@/constants/theme';
@@ -348,7 +349,16 @@ function EpisodeContent({
         />
       </View>
 
+      <EpisodeFeedback episodeId={episode.episodeId} watched={episode.watched} />
+
       <EpisodeLanguages
+        tmdbId={tvId}
+        seasonNumber={episode.seasonNumber}
+        episodeNumber={episode.episodeNumber}
+        seasonEpisodeCount={episode.seasonEpisodeCount}
+      />
+
+      <EpisodePlatforms
         tmdbId={tvId}
         seasonNumber={episode.seasonNumber}
         episodeNumber={episode.episodeNumber}

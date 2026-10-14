@@ -6,6 +6,12 @@ import m0001 from './0001_absurd_susan_delgado.sql';
 import m0002 from './0002_flawless_doorman.sql';
 import m0003 from './0003_talented_the_initiative.sql';
 import m0004 from './0004_tense_boomer.sql';
+import m0005 from './0005_unknown_obadiah_stane.sql';
+import m0006 from './0006_typical_junta.sql';
+import m0007 from './0007_milky_the_captain.sql';
+import m0008 from './0008_shiny_silverclaw.sql';
+import m0009 from './0009_overjoyed_shriek.sql';
+import m0010 from './0010_goofy_madame_web.sql';
 
   export default {
     journal,
@@ -14,7 +20,13 @@ import m0004 from './0004_tense_boomer.sql';
 m0001,
 m0002,
 m0003,
-m0004
+m0004,
+m0005,
+m0006,
+m0007,
+m0008,
+m0009,
+m0010
     }
   }
   

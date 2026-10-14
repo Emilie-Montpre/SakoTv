@@ -14,6 +14,8 @@ import { recomputeAllShowStatuses } from '@/repository/library';
 import { resetAllData } from '@/repository/reset';
 import { computeStats } from '@/repository/stats';
 
+const SECTION_PREVIEW_COUNT = 3;
+
 function formatDuration(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
@@ -36,6 +38,8 @@ export default function StatsScreen() {
 
   const stats = data;
   const [recomputing, setRecomputing] = useState(false);
+  const [allGenresShown, setAllGenresShown] = useState(false);
+  const [allYearsShown, setAllYearsShown] = useState(false);
 
   const handleRecompute = async () => {
     setRecomputing(true);
@@ -53,7 +57,7 @@ export default function StatsScreen() {
   const handleReset = () => {
     Alert.alert(
       'Réinitialiser les données ?',
-      'Supprime toute la bibliothèque, l\'historique et les échecs d\'import. Irréversible.',
+      'Supprime toute la bibliothèque, l\'historique, les échecs d\'import, les personnes favorites et les listes. Irréversible.',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -79,12 +83,32 @@ export default function StatsScreen() {
           {stats && (
             <>
               <View style={styles.tileRow}>
-                <Tile label="Films vus" value={stats.moviesWatched} theme={theme} />
-                <Tile label="Épisodes vus" value={stats.episodesWatched} theme={theme} />
+                <Tile
+                  label="Films vus"
+                  value={stats.moviesWatched}
+                  theme={theme}
+                  onPress={() => router.push('/list/watched-movies')}
+                />
+                <Tile
+                  label="Épisodes vus"
+                  value={stats.episodesWatched}
+                  theme={theme}
+                  onPress={() => router.push('/list/watched-episodes')}
+                />
               </View>
               <View style={styles.tileRow}>
-                <Tile label="Dans la bibliothèque" value={stats.showsInLibrary} theme={theme} />
-                <Tile label="Favoris" value={stats.favoritesCount} theme={theme} />
+                <Tile
+                  label="Dans la bibliothèque"
+                  value={stats.showsInLibrary}
+                  theme={theme}
+                  onPress={() => router.push('/(tabs)/library')}
+                />
+                <Tile
+                  label="Favoris"
+                  value={stats.favoritesCount}
+                  theme={theme}
+                  onPress={() => router.push('/list/favorite-titles')}
+                />
               </View>
               <View style={[styles.tileWide, { backgroundColor: theme.backgroundElement }]}>
                 <ThemedText type="small" themeColor="textSecondary">
@@ -92,6 +116,20 @@ export default function StatsScreen() {
                 </ThemedText>
                 <ThemedText type="subtitle">{formatDuration(stats.totalMinutesWatched)}</ThemedText>
               </View>
+
+              <Pressable
+                style={[styles.tileWide, styles.tileWideRow, { backgroundColor: theme.backgroundElement }]}
+                onPress={() => router.push('/list/favorite-people')}>
+                <ThemedText type="smallBold">Personnes favorites ({stats.favoritePeopleCount})</ThemedText>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </Pressable>
+
+              <Pressable
+                style={[styles.tileWide, styles.tileWideRow, { backgroundColor: theme.backgroundElement }]}
+                onPress={() => router.push('/lists')}>
+                <ThemedText type="smallBold">Mes listes ({stats.customListsCount})</ThemedText>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </Pressable>
 
               <Pressable
                 style={[styles.historyButton, { backgroundColor: theme.backgroundElement }]}
@@ -108,7 +146,7 @@ export default function StatsScreen() {
               {stats.topGenres.length > 0 && (
                 <View style={styles.section}>
                   <ThemedText type="smallBold">Genres favoris</ThemedText>
-                  {stats.topGenres.map((g) => (
+                  {(allGenresShown ? stats.topGenres : stats.topGenres.slice(0, SECTION_PREVIEW_COUNT)).map((g) => (
                     <View key={g.genre} style={styles.genreRow}>
                       <ThemedText type="small">{g.genre}</ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
@@ -116,20 +154,42 @@ export default function StatsScreen() {
                       </ThemedText>
                     </View>
                   ))}
+                  {stats.topGenres.length > SECTION_PREVIEW_COUNT && (
+                    <ExpandToggle
+                      expanded={allGenresShown}
+                      hiddenCount={stats.topGenres.length - SECTION_PREVIEW_COUNT}
+                      onPress={() => setAllGenresShown((value) => !value)}
+                      theme={theme}
+                    />
+                  )}
                 </View>
               )}
 
               {stats.byYear.length > 0 && (
                 <View style={styles.section}>
                   <ThemedText type="smallBold">Bilan par année</ThemedText>
-                  {stats.byYear.map((y) => (
-                    <View key={y.year} style={styles.genreRow}>
+                  {(allYearsShown ? stats.byYear : stats.byYear.slice(0, SECTION_PREVIEW_COUNT)).map((y) => (
+                    <Pressable
+                      key={y.year}
+                      style={styles.genreRow}
+                      onPress={() => router.push({ pathname: '/list/[kind]', params: { kind: `year-${y.year}` } })}>
                       <ThemedText type="small">{y.year}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {y.movies} films · {y.episodes} épisodes
-                      </ThemedText>
-                    </View>
+                      <View style={styles.yearRight}>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {y.movies} films · {y.episodes} épisodes
+                        </ThemedText>
+                        <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+                      </View>
+                    </Pressable>
                   ))}
+                  {stats.byYear.length > SECTION_PREVIEW_COUNT && (
+                    <ExpandToggle
+                      expanded={allYearsShown}
+                      hiddenCount={stats.byYear.length - SECTION_PREVIEW_COUNT}
+                      onPress={() => setAllYearsShown((value) => !value)}
+                      theme={theme}
+                    />
+                  )}
                 </View>
               )}
             </>
@@ -157,16 +217,47 @@ export default function StatsScreen() {
   );
 }
 
-function Tile({ label, value, theme }: { label: string; value: number; theme: ReturnType<typeof useTheme> }) {
+function ExpandToggle({
+  expanded,
+  hiddenCount,
+  onPress,
+  theme,
+}: {
+  expanded: boolean;
+  hiddenCount: number;
+  onPress: () => void;
+  theme: ReturnType<typeof useTheme>;
+}) {
   return (
-    <View style={[styles.tile, { backgroundColor: theme.backgroundElement }]}>
+    <Pressable onPress={onPress} style={styles.toggleRow}>
+      <ThemedText type="small" themeColor="textSecondary">
+        {expanded ? 'Voir moins' : `Voir les ${hiddenCount} autres`}
+      </ThemedText>
+      <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textSecondary} />
+    </Pressable>
+  );
+}
+
+function Tile({
+  label,
+  value,
+  theme,
+  onPress,
+}: {
+  label: string;
+  value: number;
+  theme: ReturnType<typeof useTheme>;
+  onPress?: () => void;
+}) {
+  return (
+    <Pressable disabled={!onPress} onPress={onPress} style={[styles.tile, { backgroundColor: theme.backgroundElement }]}>
       <ThemedText type="title" style={styles.tileValue}>
         {value}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         {label}
       </ThemedText>
-    </View>
+    </Pressable>
   );
 }
 
@@ -179,8 +270,11 @@ const styles = StyleSheet.create({
   tile: { flex: 1, borderRadius: Spacing.two, padding: Spacing.three, gap: Spacing.half },
   tileValue: { fontSize: 32, lineHeight: 36 },
   tileWide: { borderRadius: Spacing.two, padding: Spacing.three, gap: Spacing.half },
+  tileWideRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   section: { gap: Spacing.two },
-  genreRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  genreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.one },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.one, paddingVertical: Spacing.two },
+  yearRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   historyButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',

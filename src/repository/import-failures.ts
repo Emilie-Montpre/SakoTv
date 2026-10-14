@@ -51,6 +51,7 @@ export async function resolveImportFailure(id: number, tmdbId: number) {
       specialStatus: null,
       addedAt: null,
       episodeWatches: new Map(),
+      votes: [],
     });
   } else {
     await importMovie(tmdbId, {

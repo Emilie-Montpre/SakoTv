@@ -4,6 +4,7 @@ import { cachedFetch, saveQuota } from './persistent-cache';
 const BASE_URL = 'https://api.movieofthenight.com/v4';
 
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const SECONDARY_LINK_PATTERN = /short|special|recap|trailer/i;
 
 export type StreamingOptionType = 'subscription' | 'free' | 'rent' | 'buy' | 'addon';
 
@@ -28,6 +29,7 @@ export type StreamingShow = {
 
 export type StreamingOffer = {
   key: string;
+  serviceId: string;
   serviceName: string;
   type: StreamingOptionType;
   link: string;
@@ -149,6 +151,18 @@ export function getShowEpisodesByTmdbId(tmdbId: number, country = 'fr'): Promise
   });
 }
 
+function findEpisodeOptions(
+  show: StreamingEpisodeShow,
+  seasonNumber: number,
+  episodeNumber: number,
+  expectedSeasonEpisodeCount: number,
+  country: string,
+): StreamingOption[] | null {
+  const season = show.seasons?.find((entry) => entry.title === `Season ${seasonNumber}`);
+  if (!season || season.episodes.length !== expectedSeasonEpisodeCount) return null;
+  return season.episodes[episodeNumber - 1]?.streamingOptions?.[country] ?? [];
+}
+
 export function summarizeEpisodeLanguages(
   show: StreamingEpisodeShow,
   seasonNumber: number,
@@ -156,10 +170,9 @@ export function summarizeEpisodeLanguages(
   expectedSeasonEpisodeCount: number,
   country = 'fr',
 ) {
-  const season = show.seasons?.find((entry) => entry.title === `Season ${seasonNumber}`);
-  if (!season || season.episodes.length !== expectedSeasonEpisodeCount) return null;
+  const options = findEpisodeOptions(show, seasonNumber, episodeNumber, expectedSeasonEpisodeCount, country);
+  if (!options) return null;
 
-  const options = season.episodes[episodeNumber - 1]?.streamingOptions?.[country] ?? [];
   const audios = new Set<string>();
   const subtitles = new Set<string>();
   for (const option of options) {
@@ -169,24 +182,35 @@ export function summarizeEpisodeLanguages(
   return { audioLanguages: sortLanguages(audios), subtitleLanguages: sortLanguages(subtitles) };
 }
 
+export function summarizeEpisodeOffers(
+  show: StreamingEpisodeShow,
+  seasonNumber: number,
+  episodeNumber: number,
+  expectedSeasonEpisodeCount: number,
+  country = 'fr',
+): StreamingOffer[] | null {
+  const options = findEpisodeOptions(show, seasonNumber, episodeNumber, expectedSeasonEpisodeCount, country);
+  return options ? offersFromOptions(options) : null;
+}
+
 const TYPE_ORDER: Record<StreamingOptionType, number> = { subscription: 0, free: 1, addon: 2, rent: 3, buy: 4 };
 
-export function summarizeStreaming(show: StreamingShow, country = 'fr'): StreamingSummary {
-  const options = show.streamingOptions?.[country] ?? [];
-  const audios = new Set<string>();
-  const subtitles = new Set<string>();
+function offersFromOptions(options: StreamingOption[]): StreamingOffer[] {
   const offersByKey = new Map<string, StreamingOffer & { amount: number }>();
 
   for (const option of options) {
-    option.audios?.forEach((audio) => audios.add(audio.language));
-    option.subtitles?.forEach((subtitle) => subtitles.add(subtitle.locale.language));
-
     const key = `${option.service.id}:${option.type}`;
     const amount = option.price ? Number(option.price.amount) : 0;
     const existing = offersByKey.get(key);
-    if (existing && existing.amount <= amount) continue;
+    if (existing) {
+      const existingIsSecondary = SECONDARY_LINK_PATTERN.test(existing.link);
+      const optionIsSecondary = SECONDARY_LINK_PATTERN.test(option.link);
+      if (existingIsSecondary === optionIsSecondary && existing.amount <= amount) continue;
+      if (!existingIsSecondary && optionIsSecondary) continue;
+    }
     offersByKey.set(key, {
       key,
+      serviceId: option.service.id,
       serviceName: option.service.name,
       type: option.type,
       link: option.link,
@@ -197,12 +221,23 @@ export function summarizeStreaming(show: StreamingShow, country = 'fr'): Streami
     });
   }
 
-  const offers = [...offersByKey.values()]
+  return [...offersByKey.values()]
     .sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || a.serviceName.localeCompare(b.serviceName, 'fr'))
     .map(({ amount: _amount, ...offer }) => offer);
+}
+
+export function summarizeStreaming(show: StreamingShow, country = 'fr'): StreamingSummary {
+  const options = show.streamingOptions?.[country] ?? [];
+  const audios = new Set<string>();
+  const subtitles = new Set<string>();
+
+  for (const option of options) {
+    option.audios?.forEach((audio) => audios.add(audio.language));
+    option.subtitles?.forEach((subtitle) => subtitles.add(subtitle.locale.language));
+  }
 
   return {
-    offers,
+    offers: offersFromOptions(options),
     audioLanguages: sortLanguages(audios),
     subtitleLanguages: sortLanguages(subtitles),
   };

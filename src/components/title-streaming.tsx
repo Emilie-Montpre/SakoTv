@@ -2,23 +2,29 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ComponentProps } from 'react';
 import { Image } from 'expo-image';
-import { Linking, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import {
   getShowByTmdbId,
   getShowEpisodesByTmdbId,
   summarizeEpisodeLanguages,
+  summarizeEpisodeOffers,
   summarizeStreaming,
   type StreamingOffer,
   type StreamingOptionType,
 } from '@/api/streaming-availability';
+import { getWatchmodeOffers, mergeWatchmodeOffers } from '@/api/watchmode';
 import { ThemedText } from '@/components/themed-text';
+import { openStreamingLink } from '@/constants/streaming-apps';
 import { Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 
+const STREAMING_STALE_TIME = 24 * 60 * 60 * 1000;
+
 type OfferTileData = {
   key: string;
+  serviceId: string;
   serviceName: string;
   logoLight: string | null;
   logoDark: string | null;
@@ -44,6 +50,7 @@ function joinFrench(words: string[]) {
 function toTile(offer: StreamingOffer, lines: string[]): OfferTileData {
   return {
     key: offer.key,
+    serviceId: offer.serviceId,
     serviceName: offer.serviceName,
     logoLight: offer.logoLight,
     logoDark: offer.logoDark,
@@ -70,7 +77,7 @@ function mergeRentAndBuy(offers: StreamingOffer[]): OfferTileData[] {
   });
 }
 
-function OfferTile({ tile, width }: { tile: OfferTileData; width: number }) {
+function OfferTile({ tile, width, background }: { tile: OfferTileData; width: number; background?: string }) {
   const theme = useTheme();
   const scheme = useColorScheme();
   const [logoFailed, setLogoFailed] = useState(false);
@@ -79,8 +86,8 @@ function OfferTile({ tile, width }: { tile: OfferTileData; width: number }) {
 
   return (
     <Pressable
-      onPress={() => Linking.openURL(tile.link)}
-      style={[styles.offerTile, { width, backgroundColor: theme.backgroundElement }]}>
+      onPress={() => openStreamingLink(tile.serviceId, tile.link)}
+      style={[styles.offerTile, { width, backgroundColor: background ?? theme.backgroundElement }]}>
       <View style={styles.logoSlot}>
         {showLogo ? (
           <Image
@@ -104,7 +111,17 @@ function OfferTile({ tile, width }: { tile: OfferTileData; width: number }) {
   );
 }
 
-function OfferGroup({ title, tiles, width }: { title: string; tiles: OfferTileData[]; width: number }) {
+function OfferGroup({
+  title,
+  tiles,
+  width,
+  background,
+}: {
+  title: string;
+  tiles: OfferTileData[];
+  width: number;
+  background?: string;
+}) {
   if (tiles.length === 0) return null;
   return (
     <View style={styles.offerGroup}>
@@ -113,7 +130,7 @@ function OfferGroup({ title, tiles, width }: { title: string; tiles: OfferTileDa
       </ThemedText>
       <View style={styles.offerRow}>
         {tiles.map((tile) => (
-          <OfferTile key={tile.key} tile={tile} width={width} />
+          <OfferTile key={tile.key} tile={tile} width={width} background={background} />
         ))}
       </View>
     </View>
@@ -123,7 +140,20 @@ function OfferGroup({ title, tiles, width }: { title: string; tiles: OfferTileDa
 function useStreamingSummary(mediaType: 'movie' | 'tv', tmdbId: number) {
   return useQuery({
     queryKey: ['streaming-availability', mediaType, tmdbId],
-    queryFn: async () => summarizeStreaming(await getShowByTmdbId(mediaType, tmdbId, 'fr')),
+    staleTime: STREAMING_STALE_TIME,
+    queryFn: async () => {
+      const [availability, watchmode] = await Promise.allSettled([
+        getShowByTmdbId(mediaType, tmdbId, 'fr'),
+        getWatchmodeOffers(mediaType, tmdbId),
+      ]);
+      if (availability.status === 'rejected' && watchmode.status === 'rejected') throw availability.reason;
+
+      const base =
+        availability.status === 'fulfilled'
+          ? summarizeStreaming(availability.value)
+          : { offers: [], audioLanguages: [], subtitleLanguages: [] };
+      return watchmode.status === 'fulfilled' ? mergeWatchmodeOffers(base, watchmode.value) : base;
+    },
   }).data;
 }
 
@@ -279,24 +309,27 @@ export function EpisodeLanguages({
   );
 }
 
-export function TitleStreaming({ mediaType, tmdbId }: { mediaType: 'movie' | 'tv'; tmdbId: number }) {
+function OffersView({
+  offers,
+  tileWidth,
+  tileBackground,
+}: {
+  offers: StreamingOffer[];
+  tileWidth: number;
+  tileBackground?: string;
+}) {
   const theme = useTheme();
-  const { width: screenWidth } = useWindowDimensions();
-  const tileWidth = (screenWidth - Spacing.three * 2 - Spacing.two * 2) / 3;
-  const summary = useStreamingSummary(mediaType, tmdbId);
   const [paidOpen, setPaidOpen] = useState(false);
-
-  if (!summary || summary.offers.length === 0) return null;
 
   const includedGroups = INCLUDED_GROUPS.map((group) => ({
     title: group.title,
-    tiles: summary.offers.filter((offer) => group.types.includes(offer.type)).map((offer) => toTile(offer, [])),
+    tiles: offers.filter((offer) => group.types.includes(offer.type)).map((offer) => toTile(offer, [])),
   })).filter((group) => group.tiles.length > 0);
-  const addonTiles = summary.offers.filter((offer) => offer.type === 'addon').map((offer) => toTile(offer, []));
-  const paidTiles = mergeRentAndBuy(summary.offers);
+  const addonTiles = offers.filter((offer) => offer.type === 'addon').map((offer) => toTile(offer, []));
+  const paidTiles = mergeRentAndBuy(offers);
 
-  const hasRent = summary.offers.some((offer) => offer.type === 'rent');
-  const hasBuy = summary.offers.some((offer) => offer.type === 'buy');
+  const hasRent = offers.some((offer) => offer.type === 'rent');
+  const hasBuy = offers.some((offer) => offer.type === 'buy');
   const paidTitle = hasRent && hasBuy ? 'Location ou achat' : hasRent ? 'Location' : 'Achat';
 
   const hiddenCount = paidTiles.length + addonTiles.length;
@@ -308,16 +341,15 @@ export function TitleStreaming({ mediaType, tmdbId }: { mediaType: 'movie' | 'tv
   const showPaid = hiddenCount > 0 && (!hasIncluded || paidOpen);
 
   return (
-    <View style={styles.section}>
-      <ThemedText type="smallBold">Où regarder</ThemedText>
+    <>
       {includedGroups.map((group) => (
-        <OfferGroup key={group.title} title={group.title} tiles={group.tiles} width={tileWidth} />
+        <OfferGroup key={group.title} title={group.title} tiles={group.tiles} width={tileWidth} background={tileBackground} />
       ))}
 
       {showPaid && (
         <>
-          <OfferGroup title="Avec une option payante" tiles={addonTiles} width={tileWidth} />
-          <OfferGroup title={paidTitle} tiles={paidTiles} width={tileWidth} />
+          <OfferGroup title="Avec une option payante" tiles={addonTiles} width={tileWidth} background={tileBackground} />
+          <OfferGroup title={paidTitle} tiles={paidTiles} width={tileWidth} background={tileBackground} />
         </>
       )}
 
@@ -331,6 +363,88 @@ export function TitleStreaming({ mediaType, tmdbId }: { mediaType: 'movie' | 'tv
           <Ionicons name={paidOpen ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textSecondary} />
         </Pressable>
       )}
+    </>
+  );
+}
+
+function mergeEpisodeLinks(seriesOffers: StreamingOffer[], episodeOffers: StreamingOffer[] | null) {
+  let episodeLinked = 0;
+  const offers = seriesOffers.map((offer) => {
+    const match = episodeOffers?.find((candidate) => candidate.serviceId === offer.serviceId && candidate.type === offer.type);
+    if (!match) return offer;
+    episodeLinked += 1;
+    return { ...offer, link: match.link, priceLabel: match.priceLabel ?? offer.priceLabel };
+  });
+
+  for (const candidate of episodeOffers ?? []) {
+    const known = offers.some((offer) => offer.serviceId === candidate.serviceId && offer.type === candidate.type);
+    if (!known) {
+      offers.push(candidate);
+      episodeLinked += 1;
+    }
+  }
+
+  return { offers, episodeLinked };
+}
+
+export function EpisodePlatforms({
+  tmdbId,
+  seasonNumber,
+  episodeNumber,
+  seasonEpisodeCount,
+}: {
+  tmdbId: number;
+  seasonNumber: number;
+  episodeNumber: number;
+  seasonEpisodeCount: number;
+}) {
+  const theme = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const tileWidth = (screenWidth - Spacing.three * 4 - Spacing.two * 2) / 3;
+  const seriesSummary = useStreamingSummary('tv', tmdbId);
+  const episodesQuery = useQuery({
+    queryKey: ['streaming-availability-episodes', tmdbId],
+    queryFn: () => getShowEpisodesByTmdbId(tmdbId, 'fr'),
+    enabled: seasonNumber > 0,
+  });
+
+  const episodeOffers = episodesQuery.data
+    ? summarizeEpisodeOffers(episodesQuery.data, seasonNumber, episodeNumber, seasonEpisodeCount)
+    : null;
+  const { offers, episodeLinked } = mergeEpisodeLinks(seriesSummary?.offers ?? [], episodeOffers);
+  if (offers.length === 0) return null;
+
+  const note =
+    episodeLinked === 0
+      ? "Ces plateformes ouvrent la page de la série : le lien direct de l'épisode n'est pas disponible."
+      : episodeLinked < offers.length
+        ? "Les plateformes sans lien d'épisode ouvrent la page de la série."
+        : null;
+
+  return (
+    <View style={styles.episodePlatforms}>
+      <ThemedText type="smallBold">Où regarder cet épisode</ThemedText>
+      <OffersView offers={offers} tileWidth={tileWidth} tileBackground={theme.background} />
+      {note && (
+        <ThemedText type="small" themeColor="textSecondary">
+          {note}
+        </ThemedText>
+      )}
+    </View>
+  );
+}
+
+export function TitleStreaming({ mediaType, tmdbId }: { mediaType: 'movie' | 'tv'; tmdbId: number }) {
+  const { width: screenWidth } = useWindowDimensions();
+  const tileWidth = (screenWidth - Spacing.three * 2 - Spacing.two * 2) / 3;
+  const summary = useStreamingSummary(mediaType, tmdbId);
+
+  if (!summary || summary.offers.length === 0) return null;
+
+  return (
+    <View style={styles.section}>
+      <ThemedText type="smallBold">Où regarder</ThemedText>
+      <OffersView offers={summary.offers} tileWidth={tileWidth} />
     </View>
   );
 }
@@ -356,6 +470,7 @@ const styles = StyleSheet.create({
   languagesItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   languagesDetails: { gap: Spacing.one, paddingHorizontal: Spacing.three },
   languagesDetailRow: { flexDirection: 'row', gap: Spacing.two },
+  episodePlatforms: { gap: Spacing.two },
   episodeLanguages: { gap: Spacing.one },
   episodeLanguageRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
   episodeLanguageLabel: { width: 76 },

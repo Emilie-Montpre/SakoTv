@@ -4,6 +4,8 @@ export const THETVDB_API_KEY = process.env.EXPO_PUBLIC_THETVDB_API_KEY ?? '';
 export const OMDB_API_KEY = process.env.EXPO_PUBLIC_OMDB_API_KEY ?? '';
 export const STREAMING_AVAILABILITY_API_KEY = process.env.EXPO_PUBLIC_STREAMING_AVAILABILITY_API_KEY ?? '';
 
+export const WATCHMODE_API_KEY = process.env.EXPO_PUBLIC_WATCHMODE_API_KEY ?? '';
+
 const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
 
 const REQUIRED_KEYS: Record<string, string> = {
