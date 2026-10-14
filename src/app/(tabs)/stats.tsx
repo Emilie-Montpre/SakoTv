@@ -149,12 +149,18 @@ export default function StatsScreen() {
                 <View style={styles.section}>
                   <ThemedText type="smallBold">Bilan par année</ThemedText>
                   {stats.byYear.map((y) => (
-                    <View key={y.year} style={styles.genreRow}>
+                    <Pressable
+                      key={y.year}
+                      style={styles.genreRow}
+                      onPress={() => router.push({ pathname: '/list/[kind]', params: { kind: `year-${y.year}` } })}>
                       <ThemedText type="small">{y.year}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {y.movies} films · {y.episodes} épisodes
-                      </ThemedText>
-                    </View>
+                      <View style={styles.yearRight}>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {y.movies} films · {y.episodes} épisodes
+                        </ThemedText>
+                        <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+                      </View>
+                    </Pressable>
                   ))}
                 </View>
               )}
@@ -215,7 +221,8 @@ const styles = StyleSheet.create({
   tileWide: { borderRadius: Spacing.two, padding: Spacing.three, gap: Spacing.half },
   tileWideRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   section: { gap: Spacing.two },
-  genreRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  genreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.one },
+  yearRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   historyButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',

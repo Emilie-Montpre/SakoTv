@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { libraryItems, titles, watchedEpisodes } from '@/db/schema';
@@ -56,6 +56,76 @@ export async function listWatchedEpisodesByTitle(): Promise<WatchedEpisodesByTit
     .orderBy(desc(sql`count(${watchedEpisodes.id})`), titles.name);
 
   return rows;
+}
+
+export interface YearRecapEntry {
+  titleId: number;
+  tmdbId: number;
+  mediaType: MediaType;
+  isAnime: boolean;
+  name: string;
+  posterPath: string | null;
+  count: number;
+  lastWatchedAt: number;
+}
+
+export async function listYearRecap(year: number): Promise<YearRecapEntry[]> {
+  const start = new Date(year, 0, 1).getTime();
+  const end = new Date(year + 1, 0, 1).getTime();
+
+  const movieRows = await db
+    .select({
+      titleId: titles.id,
+      tmdbId: titles.tmdbId,
+      isAnime: titles.isAnime,
+      name: titles.name,
+      posterPath: titles.posterPath,
+      watchedAt: libraryItems.watchedAt,
+    })
+    .from(libraryItems)
+    .innerJoin(titles, eq(libraryItems.titleId, titles.id))
+    .where(and(eq(titles.mediaType, 'movie'), gte(libraryItems.watchedAt, start), lt(libraryItems.watchedAt, end)));
+
+  const showRows = await db
+    .select({
+      titleId: titles.id,
+      tmdbId: titles.tmdbId,
+      isAnime: titles.isAnime,
+      name: titles.name,
+      posterPath: titles.posterPath,
+      count: sql<number>`count(${watchedEpisodes.id})`,
+      lastWatchedAt: sql<number>`max(${watchedEpisodes.watchedAt})`,
+    })
+    .from(watchedEpisodes)
+    .innerJoin(titles, eq(watchedEpisodes.titleId, titles.id))
+    .where(and(gte(watchedEpisodes.watchedAt, start), lt(watchedEpisodes.watchedAt, end)))
+    .groupBy(titles.id);
+
+  const movies: YearRecapEntry[] = movieRows
+    .filter((row): row is typeof row & { watchedAt: number } => row.watchedAt != null)
+    .map((row) => ({
+      titleId: row.titleId,
+      tmdbId: row.tmdbId,
+      mediaType: 'movie',
+      isAnime: row.isAnime,
+      name: row.name,
+      posterPath: row.posterPath,
+      count: 1,
+      lastWatchedAt: row.watchedAt,
+    }));
+
+  const shows: YearRecapEntry[] = showRows.map((row) => ({
+    titleId: row.titleId,
+    tmdbId: row.tmdbId,
+    mediaType: 'tv',
+    isAnime: row.isAnime,
+    name: row.name,
+    posterPath: row.posterPath,
+    count: row.count,
+    lastWatchedAt: row.lastWatchedAt,
+  }));
+
+  return [...movies, ...shows].sort((a, b) => b.lastWatchedAt - a.lastWatchedAt);
 }
 
 export interface FavoriteTitleEntry {

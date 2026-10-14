@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,7 +14,12 @@ import { displayStatusLabel, pausedLabel } from '@/constants/content';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { listFavoritePeople } from '@/repository/favorite-people';
-import { listFavoriteTitles, listWatchedEpisodesByTitle, listWatchedMovies } from '@/repository/stats-lists';
+import {
+  listFavoriteTitles,
+  listWatchedEpisodesByTitle,
+  listWatchedMovies,
+  listYearRecap,
+} from '@/repository/stats-lists';
 
 type CategoryFilter = 'all' | 'series' | 'anime';
 
@@ -34,12 +39,15 @@ interface ListRow {
   href: string;
   round: boolean;
   category?: 'anime' | 'series';
+  movie?: boolean;
+  episodeCount?: number;
 }
 
 interface ListConfig {
   title: string;
   empty: string;
   filterable?: boolean;
+  summarize?: (rows: ListRow[]) => string;
   load: () => Promise<ListRow[]>;
 }
 
@@ -114,15 +122,52 @@ const CONFIGS: Record<ListKind, ListConfig> = {
   },
 };
 
-function isListKind(value: string | undefined): value is ListKind {
-  return value != null && value in CONFIGS;
+const YEAR_KIND_PATTERN = /^year-(\d{4})$/;
+
+function pluralize(count: number, singular: string, plural: string) {
+  return `${count} ${count > 1 ? plural : singular}`;
+}
+
+function buildYearConfig(year: number): ListConfig {
+  return {
+    title: `Bilan ${year}`,
+    empty: `Rien de regardé en ${year}.`,
+    summarize: (rows) => {
+      const movieCount = rows.filter((row) => row.movie).length;
+      const episodeCount = rows.reduce((sum, row) => sum + (row.movie ? 0 : (row.episodeCount ?? 0)), 0);
+      return `${pluralize(movieCount, 'film', 'films')} · ${pluralize(episodeCount, 'épisode', 'épisodes')}`;
+    },
+    load: async () => {
+      const entries = await listYearRecap(year);
+      return entries.map((entry) => ({
+        key: `${entry.mediaType}-${entry.titleId}`,
+        title: entry.name,
+        subtitle:
+          entry.mediaType === 'movie'
+            ? `Film · vu le ${formatWatchedDate(entry.lastWatchedAt)}`
+            : `${pluralize(entry.count, 'épisode vu', 'épisodes vus')} · ${entry.isAnime ? 'Animé' : 'Série'}`,
+        imagePath: entry.posterPath,
+        href: `/title/${entry.mediaType}-${entry.tmdbId}`,
+        round: false,
+        movie: entry.mediaType === 'movie',
+        episodeCount: entry.mediaType === 'tv' ? entry.count : undefined,
+      }));
+    },
+  };
+}
+
+function resolveConfig(kind: string | undefined): ListConfig | null {
+  if (kind == null) return null;
+  if (kind in CONFIGS) return CONFIGS[kind as ListKind];
+  const yearMatch = kind.match(YEAR_KIND_PATTERN);
+  return yearMatch ? buildYearConfig(Number(yearMatch[1])) : null;
 }
 
 export default function ListScreen() {
   const { kind } = useLocalSearchParams<{ kind: string }>();
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const config = isListKind(kind) ? CONFIGS[kind] : null;
+  const config = useMemo(() => resolveConfig(kind), [kind]);
 
   const { data } = useQuery({
     queryKey: ['stats-list', kind],
@@ -150,9 +195,13 @@ export default function ListScreen() {
               <Ionicons name="chevron-back" size={24} color={theme.text} />
             </Pressable>
             <ThemedText type="subtitle">
-              {config ? `${config.title}${data ? ` (${rows.length})` : ''}` : 'Liste'}
+              {config ? `${config.title}${data && !config.summarize ? ` (${rows.length})` : ''}` : 'Liste'}
             </ThemedText>
           </View>
+
+          {config?.summarize && data && (
+            <ThemedText themeColor="textSecondary">{config.summarize(rows)}</ThemedText>
+          )}
 
           {config?.filterable && (
             <View style={styles.filters}>
