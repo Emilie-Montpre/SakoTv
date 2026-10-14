@@ -13,6 +13,8 @@ import { recomputeAllShowStatuses } from '@/repository/library';
 import { resetAllData } from '@/repository/reset';
 import { computeStats } from '@/repository/stats';
 
+const SECTION_PREVIEW_COUNT = 3;
+
 function formatDuration(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
@@ -35,6 +37,8 @@ export default function StatsScreen() {
 
   const stats = data;
   const [recomputing, setRecomputing] = useState(false);
+  const [allGenresShown, setAllGenresShown] = useState(false);
+  const [allYearsShown, setAllYearsShown] = useState(false);
 
   const handleRecompute = async () => {
     setRecomputing(true);
@@ -134,7 +138,7 @@ export default function StatsScreen() {
               {stats.topGenres.length > 0 && (
                 <View style={styles.section}>
                   <ThemedText type="smallBold">Genres favoris</ThemedText>
-                  {stats.topGenres.map((g) => (
+                  {(allGenresShown ? stats.topGenres : stats.topGenres.slice(0, SECTION_PREVIEW_COUNT)).map((g) => (
                     <View key={g.genre} style={styles.genreRow}>
                       <ThemedText type="small">{g.genre}</ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
@@ -142,13 +146,21 @@ export default function StatsScreen() {
                       </ThemedText>
                     </View>
                   ))}
+                  {stats.topGenres.length > SECTION_PREVIEW_COUNT && (
+                    <ExpandToggle
+                      expanded={allGenresShown}
+                      hiddenCount={stats.topGenres.length - SECTION_PREVIEW_COUNT}
+                      onPress={() => setAllGenresShown((value) => !value)}
+                      theme={theme}
+                    />
+                  )}
                 </View>
               )}
 
               {stats.byYear.length > 0 && (
                 <View style={styles.section}>
                   <ThemedText type="smallBold">Bilan par année</ThemedText>
-                  {stats.byYear.map((y) => (
+                  {(allYearsShown ? stats.byYear : stats.byYear.slice(0, SECTION_PREVIEW_COUNT)).map((y) => (
                     <Pressable
                       key={y.year}
                       style={styles.genreRow}
@@ -162,6 +174,14 @@ export default function StatsScreen() {
                       </View>
                     </Pressable>
                   ))}
+                  {stats.byYear.length > SECTION_PREVIEW_COUNT && (
+                    <ExpandToggle
+                      expanded={allYearsShown}
+                      hiddenCount={stats.byYear.length - SECTION_PREVIEW_COUNT}
+                      onPress={() => setAllYearsShown((value) => !value)}
+                      theme={theme}
+                    />
+                  )}
                 </View>
               )}
             </>
@@ -184,6 +204,27 @@ export default function StatsScreen() {
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+function ExpandToggle({
+  expanded,
+  hiddenCount,
+  onPress,
+  theme,
+}: {
+  expanded: boolean;
+  hiddenCount: number;
+  onPress: () => void;
+  theme: ReturnType<typeof useTheme>;
+}) {
+  return (
+    <Pressable onPress={onPress} style={styles.toggleRow}>
+      <ThemedText type="small" themeColor="textSecondary">
+        {expanded ? 'Voir moins' : `Voir les ${hiddenCount} autres`}
+      </ThemedText>
+      <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textSecondary} />
+    </Pressable>
   );
 }
 
@@ -222,6 +263,7 @@ const styles = StyleSheet.create({
   tileWideRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   section: { gap: Spacing.two },
   genreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.one },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.one, paddingVertical: Spacing.two },
   yearRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   historyButton: {
     flexDirection: 'row',
