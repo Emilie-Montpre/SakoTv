@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { departmentLabel } from '@/api/person-credits';
@@ -20,6 +20,11 @@ import {
   listWatchedMovies,
   listYearRecap,
 } from '@/repository/stats-lists';
+import {
+  getCustomListName,
+  listCustomListTitles,
+  removeTitleFromList,
+} from '@/repository/custom-lists';
 
 type CategoryFilter = 'all' | 'series' | 'anime';
 
@@ -41,6 +46,7 @@ interface ListRow {
   category?: 'anime' | 'series';
   movie?: boolean;
   episodeCount?: number;
+  removeFromList?: () => Promise<void>;
 }
 
 interface ListConfig {
@@ -48,6 +54,7 @@ interface ListConfig {
   empty: string;
   filterable?: boolean;
   summarize?: (rows: ListRow[]) => string;
+  loadTitle?: () => Promise<string>;
   load: () => Promise<ListRow[]>;
 }
 
@@ -156,9 +163,33 @@ function buildYearConfig(year: number): ListConfig {
   };
 }
 
+const CUSTOM_KIND_PATTERN = /^custom-(\d+)$/;
+
+function buildCustomListConfig(listId: number): ListConfig {
+  return {
+    title: 'Liste',
+    empty: "Cette liste est vide. Ajoute-y des titres depuis leur fiche, avec le menu en haut à droite.",
+    loadTitle: () => getCustomListName(listId),
+    load: async () => {
+      const entries = await listCustomListTitles(listId);
+      return entries.map((entry) => ({
+        key: `title-${entry.titleId}`,
+        title: entry.name,
+        subtitle: entry.mediaType === 'movie' ? 'Film' : entry.isAnime ? 'Animé' : 'Série',
+        imagePath: entry.posterPath,
+        href: `/title/${entry.mediaType}-${entry.tmdbId}`,
+        round: false,
+        removeFromList: () => removeTitleFromList(listId, entry.titleId),
+      }));
+    },
+  };
+}
+
 function resolveConfig(kind: string | undefined): ListConfig | null {
   if (kind == null) return null;
   if (kind in CONFIGS) return CONFIGS[kind as ListKind];
+  const customMatch = kind.match(CUSTOM_KIND_PATTERN);
+  if (customMatch) return buildCustomListConfig(Number(customMatch[1]));
   const yearMatch = kind.match(YEAR_KIND_PATTERN);
   return yearMatch ? buildYearConfig(Number(yearMatch[1])) : null;
 }
@@ -175,9 +206,32 @@ export default function ListScreen() {
     enabled: config != null,
   });
 
+  const { data: dynamicTitle } = useQuery({
+    queryKey: ['stats-list-title', kind],
+    queryFn: () => config!.loadTitle!(),
+    enabled: config?.loadTitle != null,
+  });
+
+  const confirmRemove = (row: ListRow) => {
+    if (!row.removeFromList) return;
+    Alert.alert(`Retirer "${row.title}" de la liste ?`, undefined, [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Retirer',
+        style: 'destructive',
+        onPress: async () => {
+          await row.removeFromList!();
+          queryClient.invalidateQueries({ queryKey: ['stats-list', kind] });
+          queryClient.invalidateQueries({ queryKey: ['custom-lists'] });
+        },
+      },
+    ]);
+  };
+
   useFocusEffect(
     useCallback(() => {
       queryClient.invalidateQueries({ queryKey: ['stats-list', kind] });
+      queryClient.invalidateQueries({ queryKey: ['stats-list-title', kind] });
     }, [queryClient, kind]),
   );
 
@@ -195,7 +249,7 @@ export default function ListScreen() {
               <Ionicons name="chevron-back" size={24} color={theme.text} />
             </Pressable>
             <ThemedText type="subtitle">
-              {config ? `${config.title}${data && !config.summarize ? ` (${rows.length})` : ''}` : 'Liste'}
+              {config ? `${dynamicTitle ?? config.title}${data && !config.summarize ? ` (${rows.length})` : ''}` : 'Liste'}
             </ThemedText>
           </View>
 
@@ -238,7 +292,8 @@ export default function ListScreen() {
               return (
                 <Pressable
                   style={[styles.row, { backgroundColor: theme.backgroundElement }]}
-                  onPress={() => router.push(item.href as never)}>
+                  onPress={() => router.push(item.href as never)}
+                  onLongPress={item.removeFromList ? () => confirmRemove(item) : undefined}>
                   {image ? (
                     <Image source={{ uri: image }} style={imageStyle} contentFit="cover" />
                   ) : (

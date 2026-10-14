@@ -56,7 +56,7 @@ export default function StatsScreen() {
   const handleReset = () => {
     Alert.alert(
       'Réinitialiser les données ?',
-      'Supprime toute la bibliothèque, l\'historique, les échecs d\'import et les personnes favorites. Irréversible.',
+      'Supprime toute la bibliothèque, l\'historique, les échecs d\'import, les personnes favorites et les listes. Irréversible.',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -120,6 +120,13 @@ export default function StatsScreen() {
                 style={[styles.tileWide, styles.tileWideRow, { backgroundColor: theme.backgroundElement }]}
                 onPress={() => router.push('/list/favorite-people')}>
                 <ThemedText type="smallBold">Personnes favorites ({stats.favoritePeopleCount})</ThemedText>
+                <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+              </Pressable>
+
+              <Pressable
+                style={[styles.tileWide, styles.tileWideRow, { backgroundColor: theme.backgroundElement }]}
+                onPress={() => router.push('/lists')}>
+                <ThemedText type="smallBold">Mes listes ({stats.customListsCount})</ThemedText>
                 <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
               </Pressable>
 

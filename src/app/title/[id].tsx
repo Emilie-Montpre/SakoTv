@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getMovieDetails, getTvDetails, tmdbImageUrl } from '@/api/tmdb';
 import type { TmdbMovieDetails, TmdbTvDetails, TmdbVideo } from '@/api/tmdb-types';
+import { AddToListSheet } from '@/components/add-to-list-sheet';
 import { CastSheet } from '@/components/cast-sheet';
 import { EpisodeSheet, type EpisodeSheetData } from '@/components/episode-sheet';
 import { Synopsis } from '@/components/synopsis';
@@ -217,6 +218,8 @@ export default function TitleDetailScreen() {
   }, [episodeParam, roleParam, localStateQuery.data]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['title-local-state', titleId] });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [listSheetOpen, setListSheetOpen] = useState(false);
 
   /**
    * Toute action qui écrit en base (cocher un épisode, bouton de statut...) passe par ici : gèle l'écran
@@ -341,6 +344,45 @@ export default function TitleDetailScreen() {
           >
             <Ionicons name={local.isFavorite ? 'star' : 'star-outline'} size={20} color="#fff" />
           </Pressable>
+        )}
+        {!resolveFailureId && titleId != null && (
+          <Pressable
+            disabled={mutating}
+            onPress={() => setMenuOpen((open) => !open)}
+            style={[styles.floatingIconButton, styles.menuButton, { top: insets.top + Spacing.two, opacity: mutating ? 0.4 : 1 }]}
+            hitSlop={12}
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
+          </Pressable>
+        )}
+        {menuOpen && <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)} />}
+        {menuOpen && (
+          <View
+            style={[
+              styles.menu,
+              { top: insets.top + Spacing.two + FLOATING_BUTTON_SIZE + Spacing.one, backgroundColor: theme.backgroundElement },
+            ]}
+          >
+            <Pressable
+              onPress={() => {
+                setMenuOpen(false);
+                setListSheetOpen(true);
+              }}
+              style={styles.menuItem}
+            >
+              <Ionicons name="list-outline" size={20} color={theme.text} />
+              <ThemedText>Ajouter à une liste</ThemedText>
+            </Pressable>
+          </View>
+        )}
+        {titleId != null && (
+          <AddToListSheet
+            visible={listSheetOpen}
+            titleId={titleId}
+            titleName={name}
+            titlePosterPath={details.poster_path}
+            onClose={() => setListSheetOpen(false)}
+          />
         )}
         {frozen && (
           <FreezeOverlay>
@@ -918,6 +960,8 @@ function LibraryActions({
   );
 }
 
+const FLOATING_BUTTON_SIZE = 36;
+
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   safeArea: { flex: 1 },
@@ -930,7 +974,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(17, 17, 17, 0.45)',
   },
   backButton: { left: Spacing.three },
-  favoriteButton: { right: Spacing.three },
+  menuButton: { right: Spacing.three },
+  favoriteButton: { right: Spacing.three + FLOATING_BUTTON_SIZE + Spacing.two },
+  menuBackdrop: { ...StyleSheet.absoluteFillObject, zIndex: 15 },
+  menu: {
+    position: 'absolute',
+    right: Spacing.three,
+    zIndex: 20,
+    width: 230,
+    padding: Spacing.one,
+    borderRadius: Spacing.three,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+  },
   /** Recouvre tout le contenu de la Fiche (mais pas le bouton retour/favori, au-dessus via zIndex) pendant le chargement initial ou l'enregistrement d'une action. */
   freezeOverlay: {
     position: 'absolute',

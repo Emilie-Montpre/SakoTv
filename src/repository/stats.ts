@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { episodes, libraryItems, seasons, titles, watchedEpisodes } from '@/db/schema';
+import { countCustomLists } from '@/repository/custom-lists';
 import { countFavoritePeople } from '@/repository/favorite-people';
 
 export interface StatsSummary {
@@ -10,6 +11,7 @@ export interface StatsSummary {
   showsInLibrary: number;
   favoritesCount: number;
   favoritePeopleCount: number;
+  customListsCount: number;
   totalMinutesWatched: number;
   topGenres: { genre: string; count: number }[];
   byYear: { year: number; movies: number; episodes: number }[];
@@ -79,6 +81,7 @@ export async function computeStats(): Promise<StatsSummary> {
     showsInLibrary: libraryCount.length,
     favoritesCount: libraryCount.filter((l) => l.isFavorite).length,
     favoritePeopleCount: await countFavoritePeople(),
+    customListsCount: await countCustomLists(),
     totalMinutesWatched,
     topGenres,
     byYear,

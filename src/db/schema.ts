@@ -161,3 +161,24 @@ export const episodeImportedVotes = sqliteTable(
   },
   (table) => [uniqueIndex('episode_imported_votes_unique').on(table.episodeId, table.kind, table.code)],
 );
+
+export const customLists = sqliteTable('custom_lists', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  createdAt: integer('created_at').notNull().default(sql`(unixepoch() * 1000)`),
+});
+
+export const customListItems = sqliteTable(
+  'custom_list_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    listId: integer('list_id')
+      .notNull()
+      .references(() => customLists.id, { onDelete: 'cascade' }),
+    titleId: integer('title_id')
+      .notNull()
+      .references(() => titles.id, { onDelete: 'cascade' }),
+    addedAt: integer('added_at').notNull().default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [uniqueIndex('custom_list_items_list_title_unique').on(table.listId, table.titleId)],
+);
