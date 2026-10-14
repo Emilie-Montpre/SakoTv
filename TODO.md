@@ -397,3 +397,14 @@ Projet personnel aujourd'hui, jamais publié. **Demandé le 2026-10-10** : garde
 - [ ] Les chips de saison restent toujours visibles ; les épisodes sont masqués au départ. Un tap sur une saison affiche ses épisodes ; retaper sur la même la masque ; un tap sur une autre passe à celle-là. L'appui long garde son rôle (marquer toute la saison vue).
 - [ ] **À trancher** : sans saison ouverte par défaut, on perd le raccourci vers là où on en est. Piste : une ligne "Prochain à regarder : S2 · E5" au-dessus des chips, qui ouvre directement cette saison (voir aussi "Fiche : défiler jusqu'au prochain épisode à valider"). Une série à une seule saison serait dépliée d'office. Mémoriser la dernière saison ouverte : pas au début.
 - [ ] Aucun prérequis : touche seulement l'écran Fiche ([title/[id].tsx](src/app/title/[id].tsx)). Décidé le 2026-10-14 : c'est du design, donc pour la Catégorie 7.
+
+## Backlog — Refonte du design des écrans de liste de Stats (Catégorie 7, design)
+
+**Demandé le 2026-10-14, confiée à la Catégorie 7 ; à ne pas faire avant que l'utilisatrice le demande.** Ces écrans ont été construits en Catégorie 6 de façon fonctionnelle, sans soigner le design, et elle ne les aime pas.
+
+- [ ] **"Mes listes"** ([lists.tsx](src/app/lists.tsx)) : l'écran qui liste ses listes personnalisées, avec les affiches empilées. Elle n'aime pas la page dans son ensemble.
+- [ ] **"Personnes favorites"** (kind `favorite-people` de [list/[kind].tsx](src/app/list/[kind].tsx)) : même remarque, la page ne lui plaît pas.
+- [ ] **Titres trop gros et espace titre / contenu** : sur les autres listes de cet écran (Favoris, Films vus, Épisodes vus, Bilan d'une année, contenu d'une liste), le titre est jugé beaucoup trop gros, et l'espace entre le titre et le début de la liste ne lui plaît pas non plus.
+- [ ] **Modèle à suivre** : l'écran **Historique** ([history.tsx](src/app/(tabs)/history.tsx)) lui plaît tel quel. Il peut servir de référence de ton et de proportions.
+- [ ] Le design est à montrer en maquette avant d'être codé, comme le reste de la Catégorie 7. Ne pas toucher à la logique (requêtes, listes, appui long) ; seulement l'apparence.
+- **À savoir** : ces écrans (`lists.tsx`, `list/[kind].tsx`) n'existent que sur la branche `Stats-&-données-personnelles-TV-Time` tant qu'elle n'est pas fusionnée ; la Catégorie 7 ne pourra les modifier qu'après cette fusion.
