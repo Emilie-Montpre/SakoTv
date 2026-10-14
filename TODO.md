@@ -377,3 +377,23 @@ Projet personnel aujourd'hui, jamais publié. **Demandé le 2026-10-10** : garde
 - [ ] **Quotas partagés** : les paliers gratuits (Watchmode 2 500 crédits par mois, OMDb 1 000 par jour, Streaming Availability 1 000 par mois) sont calibrés pour une seule personne ; plusieurs utilisateurs les épuiseraient vite.
 - [ ] **Vie privée** : les données sont locales (SQLite), mais l'export TV Time contient des données personnelles. Prévoir ce que l'app dit et ne dit pas à ce sujet.
 - [ ] **Build natif** : l'app tourne dans Expo Go. Une diffusion demande un vrai build (EAS Build), ce qui débloque aussi des choses impossibles dans Expo Go (par exemple la configuration de la barre de statut dans `app.json`).
+
+## Fait et à venir — Avis perso, avis TV Time importés et listes (Catégorie 6)
+
+**Décidé et fait le 2026-10-11** pour les épisodes ; le reste est à garder en tête.
+
+- [x] **Bloc "Mon avis" sur la fiche épisode** ([episode-feedback.tsx](src/components/episode-feedback.tsx)), sous la note IMDb : trois boutons (Réagir, Noter, Écrire) qui se déplient. 12 réactions (plusieurs par épisode), étoiles de 1 à 5, texte libre enregistré automatiquement. Les avis restent gardés et visibles même si l'épisode repasse en "non vu". Les trois premières réactions choisies occupent des emplacements fixes affichés dans le bouton ; une quatrième ne prend jamais la place d'une des trois, un emplacement libéré est repris par la prochaine réaction choisie.
+- [x] **Avis TV Time importés, en lecture seule** : l'import du zip lit `emotions-3-prod-episode_votes` et `ratings-3-prod-episode_votes` (série, saison, épisode, code) et les range dans la table `episode_imported_votes`, affichés dans une ligne repliable "Importé de TV Time (N)", séparés des avis actuels. Décodage : codes 28 à 39 = jeu de 12 émotions (table du dépôt tv-time-capsule, source unique, structure cohérente avec les 12 réactions) ; code 3 = Wow, estimé à environ 5 étoiles ; tout autre code (ex. notes 28 et 29) est affiché "Avis inconnu" avec son code, sans conversion en étoiles. Une recherche par agent le 2026-10-11 n'a rien trouvé de plus fiable. **Se remplit à l'import réel du zip (Catégorie 3)** : rien n'apparaît tant que l'import n'est pas refait.
+- [ ] **Votes sur les films** (`emotions-live-votes`, `ratings-live-votes`) : pas importés, Sako TV n'a pas encore d'avis perso sur les films.
+- [ ] **Avis perso sur les films et les séries entières** : demandé le 2026-10-11, **à faire plus tard**, mais discret : pas près du résumé de la fiche, plutôt plus bas, pour ne pas faire de tache.
+- [ ] **Données découvertes, non exploitées** : `tv_show_user_emotion_count` (émotions comptées par série) et `where-to-watch-prod-table` (plateforme où chaque épisode a été regardé).
+- [ ] **Listes personnalisées** : on les fera. Emplacement envisagé : dans Stats, sous "Personnes favorites". Comment les remplir (ajout titre par titre depuis la fiche, ou autre) : à décider. Import des listes TV Time (`lists-prod-lists`) via la Catégorie 3.
+- [ ] **Vérification du volume importé** : outil de contrôle, distinct de la revue des correspondances de la Catégorie 3. Il compare les totaux déjà calculés par TV Time (`stats-prod-cache`, `tracking-prod-count-by-timeframe`) avec ce que Sako TV recalcule. À faire après l'import réel, pas avant.
+
+## Backlog — Fiche : épisodes masqués par défaut, une saison se déplie au tap (Catégorie 7, design)
+
+**Idée du 2026-10-14, confiée à la Catégorie 7 (design) ; pas encore décidée dans le détail ni commencée, à ne pas faire avant que l'utilisatrice le demande.** Sur une série longue, la liste d'épisodes oblige à beaucoup défiler pour atteindre "Titres similaires".
+
+- [ ] Les chips de saison restent toujours visibles ; les épisodes sont masqués au départ. Un tap sur une saison affiche ses épisodes ; retaper sur la même la masque ; un tap sur une autre passe à celle-là. L'appui long garde son rôle (marquer toute la saison vue).
+- [ ] **À trancher** : sans saison ouverte par défaut, on perd le raccourci vers là où on en est. Piste : une ligne "Prochain à regarder : S2 · E5" au-dessus des chips, qui ouvre directement cette saison (voir aussi "Fiche : défiler jusqu'au prochain épisode à valider"). Une série à une seule saison serait dépliée d'office. Mémoriser la dernière saison ouverte : pas au début.
+- [ ] Aucun prérequis : touche seulement l'écran Fiche ([title/[id].tsx](src/app/title/[id].tsx)). Décidé le 2026-10-14 : c'est du design, donc pour la Catégorie 7.
